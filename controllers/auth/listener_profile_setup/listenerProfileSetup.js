@@ -1,0 +1,153 @@
+const Database = require("../../../connections/connection");
+const Auth = Database.user;
+const Form = Database.form;
+const ListenerProfile = Database.listenerProfile;
+const listenerRequest = async (req, res) => {
+  const userId = req.body.id;
+
+  try {
+    const user = await Auth.findOne({ where: { id: userId } });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    await Auth.update(
+      { listener_request_status: "pending" },
+      { where: { id: userId } }
+    );
+
+    return res.status(200).json({
+      message: "User listener request status updated to pending",
+    });
+  } catch (error) {
+    console.error("Error updating listener request status:", error);
+    return res.status(500).json({
+      message: "Error updating listener request status",
+      error: error.message,
+    });
+  }
+};
+const storeListenerProfile = async (req, res) => {
+    try {
+      const {
+        listenerId,
+        display_name,
+        gender,
+        age,
+        topic,
+        service,
+        about,
+        call_availability_duration,
+        dob,
+        image,
+        proof,
+      } = req.body;
+  
+      if (!display_name || !gender || !age || !topic || !service || !about || !call_availability_duration || !dob || !image || !proof) {
+        return res.status(400).json({
+          message: "All fields are required",
+        });
+      }
+  
+      const newListenerProfile = await ListenerProfile.create({
+        listenerId,
+        display_name,
+        gender,
+        age,
+        topic,
+        service,
+        about,
+        call_availability_duration,
+        dob,
+        image,
+        proof,
+      });
+      if (listenerId) {
+        await Auth.update(
+          { listener_request_status: "documents in review" },
+          { where: { id: listenerId } }
+        );
+      }
+      return res.status(201).json({
+        message: "Listener profile created successfully",
+        profile: newListenerProfile,
+      });
+    } catch (error) {
+      console.error("Error storing listener profile:", error);
+      return res.status(500).json({
+        message: "Error storing listener profile",
+        error: error.message,
+      });
+    }
+  };
+const submitForm = async (req, res) => {
+  try {
+    const {
+      userId,
+      fullName,
+      gender,
+      describe_yourself,
+      dob,
+      mobile_number,
+      email,
+      resume,
+      question1,
+      answer1,
+      question2,
+      answer2,
+      question3,
+      answer3,
+      question4,
+      answer4,
+      question5,
+      answer5,
+    } = req.body;
+    const formData = {
+      userId,
+      fullName,
+      gender,
+      describe_yourself,
+      dob,
+      mobile_number,
+      email,
+      resume,
+      question1,
+      answer1,
+      question2,
+      answer2,
+      question3,
+      answer3,
+      question4,
+      answer4,
+      question5,
+      answer5,
+    };
+
+    const newForm = await Form.create(formData);
+    if (userId) {
+      await Auth.update(
+        { listener_request_status: "confirmation request" },
+        { where: { id: userId } }
+      );
+    }
+    return res.status(201).json({
+      message: "Form submitted successfully",
+      form: newForm,
+    });
+  } catch (error) {
+    console.error("Error submitting form:", error);
+    return res.status(500).json({
+      message: "Error submitting form",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  listenerRequest,
+  submitForm,
+  storeListenerProfile
+};
