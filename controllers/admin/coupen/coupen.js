@@ -79,7 +79,7 @@ const updateCoupen = async (req, res) => {
 
 const deleteCoupen = async (req, res) => {
     try {
-        const { id } = req.params; // Get ID from URL parameters
+        const { id } = req.params; 
 
         const deleted = await Coupen.destroy({ where: { id } });
 

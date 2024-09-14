@@ -30,6 +30,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
    
     },
+    country_code: {
+      type: DataTypes.STRING,
+      allowNULL: false,
+    },
     isVerified: {
       type: DataTypes.BOOLEAN,
 
@@ -45,7 +49,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     fcm_token: {
       type: DataTypes.STRING,
-      allowNull: false,
     },
     token:{
         type: DataTypes.STRING,

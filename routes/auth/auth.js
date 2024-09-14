@@ -5,6 +5,7 @@ const userControllerRouter = express.Router();
 
 userControllerRouter.post("/register", usersController.register);
 userControllerRouter.post("/login", usersController.login);
+userControllerRouter.post("/resend-otp", usersController.resendOtp);
 userControllerRouter.post("/verification", usersController.verification);
 userControllerRouter.post("/logout", usersController.logout);
 

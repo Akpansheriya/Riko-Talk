@@ -17,7 +17,8 @@ const register = async (req, res) => {
       email: req.body.email,
       mobile_number: req.body.mobile_number,
       role: req.body.role,
-      listener_request_status:"no request",
+      country_code: req.body.country_code,
+      listener_request_status: "no request",
       isVerified: false,
       isActivate: true,
       deactivateDate: null,
@@ -62,8 +63,8 @@ const login = async (req, res) => {
     )
       .then((result) => {
         console.log(result);
-        res.status(201).send({
-          message: "User created",
+        res.status(200).send({
+          message: "User login succussfully",
           result: user,
         });
       })
@@ -93,7 +94,7 @@ const verification = async (req, res) => {
         { expiresIn: "24h" }
       );
       await Auth.update(
-        { isverified: true, token: token },
+        { isverified: true, token: token , otp:null },
         { where: { id: user.id } }
       );
       return res.status(200).json({
@@ -160,10 +161,42 @@ const deleteProfile = async (req, res) => {
     });
   }
 };
+const resendOtp = async (req, res) => {
+  const mobile = req.body.mobile_number;
+  const user = await Auth.findOne({ where: { mobile_number: mobile } });
+
+  if (!user) {
+    return res.status(409).json({
+      message: "User not exists",
+    });
+  } else {
+    const random4DigitNumber = Math.floor(1000 + Math.random() * 9000);
+
+    Auth.update(
+      { otp: random4DigitNumber },
+      { where: { mobile_number: mobile } }
+    )
+      .then((result) => {
+        console.log(result);
+        res.status(200).send({
+          message: "otp sent successfully",
+          otp: random4DigitNumber,
+        });
+      })
+      .catch((error) => {
+        console.error("Error login user:", error);
+        res.status(500).send({
+          message: "Error login user",
+          error: error,
+        });
+      });
+  }
+};
 module.exports = {
   register,
   login,
   verification,
   logout,
   deleteProfile,
+  resendOtp
 };
