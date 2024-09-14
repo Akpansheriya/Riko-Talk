@@ -1,4 +1,5 @@
 const Database = require("../../../connections/connection");
+const uploadToS3   = require("../../../helpers/amazons3");
 const Auth = Database.user;
 const Form = Database.form;
 const ListenerProfile = Database.listenerProfile;
@@ -31,58 +32,66 @@ const listenerRequest = async (req, res) => {
   }
 };
 const storeListenerProfile = async (req, res) => {
-    try {
-      const {
-        listenerId,
-        display_name,
-        gender,
-        age,
-        topic,
-        service,
-        about,
-        call_availability_duration,
-        dob,
-        image,
-        proof,
-      } = req.body;
-  
-      if (!display_name || !gender || !age || !topic || !service || !about || !call_availability_duration || !dob || !image || !proof) {
-        return res.status(400).json({
-          message: "All fields are required",
-        });
-      }
-  
-      const newListenerProfile = await ListenerProfile.create({
-        listenerId,
-        display_name,
-        gender,
-        age,
-        topic,
-        service,
-        about,
-        call_availability_duration,
-        dob,
-        image,
-        proof,
-      });
-      if (listenerId) {
-        await Auth.update(
-          { listener_request_status: "documents in review" },
-          { where: { id: listenerId } }
-        );
-      }
-      return res.status(201).json({
-        message: "Listener profile created successfully",
-        profile: newListenerProfile,
-      });
-    } catch (error) {
-      console.error("Error storing listener profile:", error);
-      return res.status(500).json({
-        message: "Error storing listener profile",
-        error: error.message,
-      });
+  try {
+    const {
+      listenerId,
+      display_name,
+      gender,
+      age,
+      topic,
+      service,
+      about,
+      call_availability_duration,
+      dob,
+    } = req.body;
+
+    // Files from the request
+    const imageFile = req.files.image[0];
+    const proofFile = req.files.proof[0];
+
+    if (!display_name || !gender || !age || !topic || !service || !about || !call_availability_duration || !dob || !imageFile || !proofFile) {
+      return res.status(400).json({ message: "All fields are required" });
     }
-  };
+
+    // Upload files to S3
+    const imageUrl = await uploadToS3(imageFile, 'profiles');
+    const proofUrl = await uploadToS3(proofFile, 'proofs');
+
+    // Create a new listener profile
+    const newListenerProfile = await ListenerProfile.create({
+      listenerId,
+      display_name,
+      gender,
+      age,
+      topic,
+      service,
+      about,
+      call_availability_duration,
+      dob,
+      image: imageUrl,
+      proof: proofUrl,
+    });
+
+    if (listenerId) {
+      await Auth.update(
+        { listener_request_status: "documents in review" },
+        { where: { id: listenerId } }
+      );
+    }
+
+    return res.status(201).json({
+      message: "Listener profile created successfully",
+      profile: newListenerProfile,
+    });
+  } catch (error) {
+    console.error("Error storing listener profile:", error);
+    return res.status(500).json({
+      message: "Error storing listener profile",
+      error: error.message,
+    });
+  }
+};
+
 const submitForm = async (req, res) => {
   try {
     const {
@@ -149,5 +158,5 @@ const submitForm = async (req, res) => {
 module.exports = {
   listenerRequest,
   submitForm,
-  storeListenerProfile
+  storeListenerProfile,
 };
