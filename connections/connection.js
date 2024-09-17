@@ -67,6 +67,14 @@ Database.listenerProfile = require("../models/auth/listener_profile_setup/listen
   sequelize,
   DataTypes
 );
+Database.session = require("../models/user/session/sesssion")(
+  sequelize,
+  DataTypes
+);
+Database.wallet = require("../models/user/wallet/wallet")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 

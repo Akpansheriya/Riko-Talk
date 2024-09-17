@@ -13,7 +13,7 @@ const s3 = new S3Client({
 const uploadToS3 = async (file, folder) => {
   try {
     const upload = new Upload({
-      client: s3, 
+      client: s3,  
       params: {
         Bucket: process.env.AWS_S3_BUCKET_NAME,
         Key: `${folder}/${file.originalname}`, 
