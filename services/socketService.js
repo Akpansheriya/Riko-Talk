@@ -1,10 +1,10 @@
 const io = require("socket.io")();
 
-exports.startSessionSocket = (roomID, token) => {
+const startSessionSocket = (roomID, token) => {
   io.emit("session_started", { roomID, token });
 };
 
-exports.endSessionSocket = (roomID, reason) => {
+const endSessionSocket = (roomID, reason) => {
   io.to(roomID).emit("session_ended", { reason });
 };
 
@@ -16,4 +16,8 @@ io.on("connection", (socket) => {
   });
 });
 
-module.exports = io;
+module.exports = {
+  io,
+  startSessionSocket,
+  endSessionSocket,
+};

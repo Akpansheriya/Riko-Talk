@@ -22,8 +22,7 @@ function makeRandomIv() {
   return result.join('');
 }
 
-function getAlgorithm(keyBase64) {
-  const key = Buffer.from(keyBase64, 'base64');
+function getAlgorithm(key) {
   switch (key.length) {
     case 16:
       return 'aes-128-cbc';
@@ -37,7 +36,8 @@ function getAlgorithm(keyBase64) {
 }
 
 function aesEncrypt(plainText, key, iv) {
-  const cipher = crypto.createCipheriv(getAlgorithm(key), key, iv);
+  const keyBuffer = Buffer.from(key, 'utf8'); // Ensure the key is in the correct format
+  const cipher = crypto.createCipheriv(getAlgorithm(keyBuffer), keyBuffer, iv);
   cipher.setAutoPadding(true);
   const encrypted = cipher.update(plainText);
   const final = cipher.final();
@@ -58,6 +58,7 @@ function generateToken04(appId, userId, secret, effectiveTimeInSeconds, payload)
   if (!effectiveTimeInSeconds || typeof effectiveTimeInSeconds !== 'number') {
     throw { errorCode: ErrorCode.effectiveTimeInSecondsInvalid, errorMessage: 'effectiveTimeInSeconds invalid' };
   }
+
   const createTime = Math.floor(Date.now() / 1000);
   const tokenInfo = {
     app_id: appId,
@@ -67,13 +68,17 @@ function generateToken04(appId, userId, secret, effectiveTimeInSeconds, payload)
     expire: createTime + effectiveTimeInSeconds,
     payload: payload || ''
   };
+
   const plainText = JSON.stringify(tokenInfo);
-  const iv = makeRandomIv();
-  const encryptBuf = aesEncrypt(plainText, secret, iv);
+  const iv = makeRandomIv(); // Random initialization vector (16 bytes)
+
+  const encryptBuf = aesEncrypt(plainText, secret, iv); // Secret must be 32 bytes
+
   const [b1, b2, b3] = [new Uint8Array(8), new Uint8Array(2), new Uint8Array(2)];
   new DataView(b1.buffer).setBigInt64(0, BigInt(tokenInfo.expire), false);
   new DataView(b2.buffer).setUint16(0, iv.length, false);
   new DataView(b3.buffer).setUint16(0, encryptBuf.byteLength, false);
+
   const buf = Buffer.concat([Buffer.from(b1), Buffer.from(b2), Buffer.from(iv), Buffer.from(b3), Buffer.from(encryptBuf)]);
   const dv = new DataView(Uint8Array.from(buf).buffer);
   return '04' + Buffer.from(dv.buffer).toString('base64');
