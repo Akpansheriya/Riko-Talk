@@ -5,8 +5,8 @@ const User = Database.user;
 const Wallet = Database.wallet;
 const { generateToken04 } = require("../../../services/zegoCloudService");
 const socketService = require("../../../services/socketService");
-const appID = parseInt(process.env.ZEGOCLOUD_APP_ID, 10);
-const serverSecret = process.env.ZEGOCLOUD_SERVER_SECRET;
+const appID = 886950579;
+const serverSecret = "0123456789abcdef0123456789abcdef";
 
 const startSession = async (req, res) => {
   const { user_id, listener_id } = req.body;
@@ -49,7 +49,8 @@ const startSession = async (req, res) => {
 
     const token = generateToken04(appID, user.id, serverSecret, 3600, payload);
 
-    socketService.startSessionSocket(roomID, token);
+    // Correct function call
+    socketService.startSessionSocket(roomID,token);
 
     const interval = setInterval(async () => {
       const wallet = await Wallet.findOne({
@@ -77,7 +78,7 @@ const startSession = async (req, res) => {
 
 const endSession = async (sessionId, reason) => {
   try {
-    const session = await Session.findByPk(sessionId);
+    const session = await Session.findOne({where:{id:sessionId}});
     if (session && session.status === "active") {
       session.status = "completed";
       session.end_time = new Date();
@@ -88,5 +89,21 @@ const endSession = async (sessionId, reason) => {
     console.error("Error ending session:", error);
   }
 };
-
-module.exports = { startSession, endSession };
+const endSessionManually = async (req, res) => {
+    try {
+        const {sessionId,reason} = req.body
+      const session = await Session.findOne({where:{id:sessionId}});
+      if (session && session.status === "active") {
+        session.status = "completed";
+        session.end_time = new Date();
+        await session.save();
+        socketService.endSessionSocket(session.room_id, reason);
+        res.status(200).send({
+            message:"session ended"
+        })
+      }
+    } catch (error) {
+      console.error("Error ending session:", error);
+    }
+  };
+module.exports = { startSession, endSession ,endSessionManually};

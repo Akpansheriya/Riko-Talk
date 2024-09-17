@@ -6,5 +6,6 @@ walletControllerRouter.get(
   "/:user_id/balance",
   walletController.getWalletBalance
 );
+walletControllerRouter.post('/create', walletController.createWallet);
 
 module.exports = walletControllerRouter;

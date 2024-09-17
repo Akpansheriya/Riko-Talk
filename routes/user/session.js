@@ -2,7 +2,7 @@ const express = require("express");
 const sessionController = require("../../controllers/user/session/session");
 const sessionControllerRouter = express.Router();
 
-sessionControllerRouter.post('/startSession', sessionController.startSession);
-sessionControllerRouter.post('/endSession', sessionController.endSession);
+sessionControllerRouter.post('/start-session', sessionController.startSession);
+sessionControllerRouter.post('/end-session', sessionController.endSessionManually);
 
 module.exports =  sessionControllerRouter;
