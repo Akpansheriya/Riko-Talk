@@ -48,35 +48,44 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   const mobile = req.body.mobile_number;
-  const user = await Auth.findOne({ where: { mobile_number: mobile } });
+  
+  try {
+    // Check if the user exists
+    const user = await Auth.findOne({ where: { mobile_number: mobile } });
 
-  if (!user) {
-    return res.status(409).json({
-      message: "User not exists",
-    });
-  } else {
+    if (!user) {
+      return res.status(409).json({
+        message: "User does not exist",
+      });
+    }
+
+    // Generate a new OTP
     const random4DigitNumber = Math.floor(1000 + Math.random() * 9000);
 
-    Auth.update(
+    // Update the user's OTP
+    await Auth.update(
       { otp: random4DigitNumber },
       { where: { mobile_number: mobile } }
-    )
-      .then((result) => {
-        console.log(result);
-        res.status(200).send({
-          message: "User login succussfully",
-          result: user,
-        });
-      })
-      .catch((error) => {
-        console.error("Error login user:", error);
-        res.status(500).send({
-          message: "Error login user",
-          error: error,
-        });
-      });
+    );
+
+    // Fetch the updated user
+    const updatedUser = await Auth.findOne({ where: { mobile_number: mobile } });
+
+    // Send the response with updated user
+    res.status(200).json({
+      message: "User login successfully",
+      result: updatedUser,
+    });
+
+  } catch (error) {
+    console.error("Error logging in user:", error);
+    res.status(500).json({
+      message: "Error logging in user",
+      error: error.message,
+    });
   }
 };
+
 const verification = async (req, res) => {
   const id = req.body.id;
   const providedOtp = req.body.otp;
