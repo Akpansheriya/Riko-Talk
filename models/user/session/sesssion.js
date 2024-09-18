@@ -9,10 +9,14 @@ module.exports = (sequelize, DataTypes) => {
       user_id: {
         type: DataTypes.UUID,
         allowNull: false,
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4,
       },
       listener_id: {
         type: DataTypes.UUID,
         allowNull: false,
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4,
       },
       room_id: {
         type: DataTypes.STRING,

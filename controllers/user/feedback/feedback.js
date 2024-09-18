@@ -6,12 +6,12 @@ const Feedback = Database.feedback;
 
 const feedback = async (req,res) => {
     try {
-        const {listenerId,rating,feedback} = req.body
+        const {listenerId,userId,rating,feedback} = req.body
         const data = {
             listenerId:listenerId,
             rating:rating,
             feedback:feedback,
-            
+            userId:userId
         }
         Feedback.create(data).then((result) => {
             res.status(200).send({

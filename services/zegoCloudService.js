@@ -36,7 +36,7 @@ function getAlgorithm(key) {
 }
 
 function aesEncrypt(plainText, key, iv) {
-  const keyBuffer = Buffer.from(key, 'utf8'); // Ensure the key is in the correct format
+  const keyBuffer = Buffer.from(key, 'utf8'); 
   const cipher = crypto.createCipheriv(getAlgorithm(keyBuffer), keyBuffer, iv);
   cipher.setAutoPadding(true);
   const encrypted = cipher.update(plainText);
@@ -70,9 +70,9 @@ function generateToken04(appId, userId, secret, effectiveTimeInSeconds, payload)
   };
 
   const plainText = JSON.stringify(tokenInfo);
-  const iv = makeRandomIv(); // Random initialization vector (16 bytes)
+  const iv = makeRandomIv(); 
 
-  const encryptBuf = aesEncrypt(plainText, secret, iv); // Secret must be 32 bytes
+  const encryptBuf = aesEncrypt(plainText, secret, iv); 
 
   const [b1, b2, b3] = [new Uint8Array(8), new Uint8Array(2), new Uint8Array(2)];
   new DataView(b1.buffer).setBigInt64(0, BigInt(tokenInfo.expire), false);

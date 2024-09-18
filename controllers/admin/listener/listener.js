@@ -148,28 +148,85 @@ const listenerRequestApproval = async (req, res) => {
 };
 const listenersList = async (req, res) => {
   try {
-    const listeners_list = await Auth.findAll({
-      where: { role: "listener" },
+    const users = await Database.user.findAll({
+      include: [
+        {
+          model: Database.listenerProfile,
+          as: "listenerProfileData",
+          required: false,
+        },
+        {
+          model: Database.feedback,
+          as: "ratingData",
+          required: false,
+        },
+        {
+          model: Database.session,
+          as: "listenerSessionData",
+          required: false,
+        },
+      ],
     });
 
-    if (!listeners_list) {
-      return res.status(404).json({
-        message: "listeners not found",
+    const processedUsers = users.map((user) => {
+      const feedbacks = user.ratingData || [];
+      const totalFeedbacks = feedbacks.length;
+
+      const starCounts = [0, 0, 0, 0, 0];
+      let totalStars = 0;
+
+      feedbacks.forEach((feedback) => {
+        const rating = feedback.rating;
+        if (rating >= 1 && rating <= 5) {
+          starCounts[rating - 1] += 1;
+          totalStars += rating;
+        }
       });
-    }
 
-    return res.status(200).json({
-      message: "listeners list",
-      listenersList: listeners_list,
+      const percentage = starCounts.map((count) =>
+        totalFeedbacks ? (count / totalFeedbacks) * 100 : 0
+      );
+      const averageRating = totalFeedbacks
+        ? (totalStars / totalFeedbacks).toFixed(2)
+        : 0;
+
+      const sessions = user.listenerSessionData || [];
+      let totalDurationMinutes = 0;
+
+      sessions.forEach((session) => {
+        totalDurationMinutes += session.total_duration;
+      });
+
+      let formattedDuration;
+      if (totalDurationMinutes < 1) {
+        formattedDuration = `${(totalDurationMinutes * 60).toFixed(0)} seconds`;
+      } else if (totalDurationMinutes < 60) {
+        formattedDuration = `${totalDurationMinutes.toFixed(2)} minutes`;
+      } else {
+        formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
+      }
+
+      return {
+        ...user.toJSON(),
+        feedbackStats: {
+          totalCount: totalFeedbacks,
+          percentage: percentage,
+          averageRating: parseFloat(averageRating),
+        },
+        sessionStats: {
+          totalDurationMinutes,
+          formattedDuration,
+        },
+      };
     });
+
+    res.status(200).json(processedUsers);
   } catch (error) {
-    console.error("Error finding listeners list :", error);
-    return res.status(500).json({
-      message: "Error finding listeners list ",
-      error: error.message,
-    });
+    console.error("Error fetching listeners list:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
+
 module.exports = {
   listenerRequestList,
   listenerFormLink,

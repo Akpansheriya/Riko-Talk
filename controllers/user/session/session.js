@@ -8,6 +8,8 @@ const socketService = require("../../../services/socketService");
 const appID = 886950579;
 const serverSecret = "0123456789abcdef0123456789abcdef";
 
+const sessionIntervals = new Map();
+
 const startSession = async (req, res) => {
   const { user_id, listener_id } = req.body;
 
@@ -49,8 +51,7 @@ const startSession = async (req, res) => {
 
     const token = generateToken04(appID, user.id, serverSecret, 3600, payload);
 
-    // Correct function call
-    socketService.startSessionSocket(roomID,token);
+    socketService.startSessionSocket(roomID, token);
 
     const interval = setInterval(async () => {
       const wallet = await Wallet.findOne({
@@ -60,6 +61,7 @@ const startSession = async (req, res) => {
       if (!wallet || wallet.balance < 1) {
         await endSession(session.id, "Insufficient wallet balance");
         clearInterval(interval);
+        sessionIntervals.delete(session.id);
       } else {
         wallet.balance -= 1;
         session.total_duration += 1;
@@ -68,6 +70,8 @@ const startSession = async (req, res) => {
         await session.save();
       }
     }, 60000);
+
+    sessionIntervals.set(session.id, interval);
 
     res.json({ roomID, token });
   } catch (error) {
@@ -78,32 +82,49 @@ const startSession = async (req, res) => {
 
 const endSession = async (sessionId, reason) => {
   try {
-    const session = await Session.findOne({where:{id:sessionId}});
+    const session = await Session.findOne({ where: { id: sessionId } });
     if (session && session.status === "active") {
       session.status = "completed";
       session.end_time = new Date();
       await session.save();
+
+      if (sessionIntervals.has(session.id)) {
+        clearInterval(sessionIntervals.get(session.id));
+        sessionIntervals.delete(session.id);
+      }
+
       socketService.endSessionSocket(session.room_id, reason);
     }
   } catch (error) {
     console.error("Error ending session:", error);
   }
 };
+
 const endSessionManually = async (req, res) => {
-    try {
-        const {sessionId,reason} = req.body
-      const session = await Session.findOne({where:{id:sessionId}});
-      if (session && session.status === "active") {
-        session.status = "completed";
-        session.end_time = new Date();
-        await session.save();
-        socketService.endSessionSocket(session.room_id, reason);
-        res.status(200).send({
-            message:"session ended"
-        })
+  try {
+    const { sessionId, reason } = req.body;
+    const session = await Session.findOne({ where: { id: sessionId } });
+    if (session && session.status === "active") {
+      session.status = "completed";
+      session.end_time = new Date();
+      await session.save();
+
+      if (sessionIntervals.has(sessionId)) {
+        clearInterval(sessionIntervals.get(sessionId));
+        sessionIntervals.delete(sessionId);
       }
-    } catch (error) {
-      console.error("Error ending session:", error);
+
+      socketService.endSessionSocket(session.room_id, reason);
+      res.status(200).send({
+        message: "Session ended",
+      });
+    } else {
+      res.status(404).json({ message: "Session not found or already ended" });
     }
-  };
-module.exports = { startSession, endSession ,endSessionManually};
+  } catch (error) {
+    console.error("Error ending session:", error);
+    res.status(500).json({ message: "Error ending session" });
+  }
+};
+
+module.exports = { startSession, endSession, endSessionManually };
