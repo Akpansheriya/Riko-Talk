@@ -8,6 +8,6 @@ listenerControllerRouter.post("/questions", listenerController.storeQuestions);
 listenerControllerRouter.put("/questions/:id", listenerController.updateQuestions);
 listenerControllerRouter.post("/listener-request-approval",listenerController.listenerRequestApproval);
 listenerControllerRouter.get("/listeners-list", listenerController.listenersList);
-
+listenerControllerRouter.get("/listener-profile/:id", listenerController.listenerProfile);
 
 module.exports =  listenerControllerRouter;

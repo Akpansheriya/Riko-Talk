@@ -149,6 +149,21 @@ const listenerRequestApproval = async (req, res) => {
 const listenersList = async (req, res) => {
   try {
     const users = await Database.user.findAll({
+      attributes: {
+        exclude: [
+          "referal_code",
+          "role",
+          "otp",
+          "country_code",
+          "isVerified",
+          "mobile_number",
+          "email",
+          "fcm_token",
+          "token",
+          "listener_request_status",
+          "deactivateDate",
+        ],
+      },
       include: [
         {
           model: Database.listenerProfile,
@@ -226,6 +241,56 @@ const listenersList = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+const listenerProfile = async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const listenerProfile = await Database.user.findOne({
+      where: { id: userId },
+      attributes: {
+        exclude: [
+          "referal_code",
+          "role",
+          "otp",
+          "country_code",
+          "isVerified",
+          "mobile_number",
+          "email",
+          "fcm_token",
+          "token",
+          "is_video_call",
+          "isActivate",
+          "listener_request_status",
+          "deactivateDate",
+        ],
+      },
+      include: [
+        {
+          model: Database.listenerProfile,
+          as: "listenerProfileData",
+          required: false,
+        },
+      ],
+    });
+
+    if (!listenerProfile) {
+      return res.status(404).json({
+        message: "Listener profile not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Listener profile found",
+      profile: listenerProfile,
+    });
+  } catch (error) {
+    console.error("Error fetching listener profile:", error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 
 module.exports = {
   listenerRequestList,
@@ -234,4 +299,5 @@ module.exports = {
   updateQuestions,
   listenerRequestApproval,
   listenersList,
+  listenerProfile
 };

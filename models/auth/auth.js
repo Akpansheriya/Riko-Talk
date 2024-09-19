@@ -54,6 +54,9 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
     
     },
+    is_video_call:{
+      type: DataTypes.BOOLEAN,
+    },
     isActivate:{
       type: DataTypes.BOOLEAN,
     },

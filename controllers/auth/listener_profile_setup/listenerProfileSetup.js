@@ -102,7 +102,6 @@ const storeListenerProfile = async (req, res) => {
     });
   }
 };
-
 const submitForm = async (req, res) => {
   try {
     const {
@@ -165,12 +164,44 @@ const submitForm = async (req, res) => {
     });
   }
 };
+const setAvailabilityForVideoCall = async (req, res) => {
+  const { userId, status } = req.body;
 
+  try {
+    const user = await Auth.findOne({
+      where: { id: userId, role: "listener" },
+    });
 
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+    await Auth.update(
+      {
+        is_video_call: status,
+        listener_request_status: "approved",
+        role: "listener",
+      },
+      { where: { id: userId } }
+    );
+
+    return res.status(200).json({
+      message: `User's video call availability set true`,
+      is_video_call: status,
+    });
+  } catch (error) {
+    console.error("Error updating listener request status:", error);
+    return res.status(500).json({
+      message: "Error updating listener request status",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   listenerRequest,
   submitForm,
   storeListenerProfile,
-  
+  setAvailabilityForVideoCall,
 };
