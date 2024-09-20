@@ -12,6 +12,12 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         defaultValue: DataTypes.UUIDV4,
       },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4,
+      },
       rating: {
         type: DataTypes.FLOAT,
         allowNULL: false,

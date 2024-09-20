@@ -77,7 +77,18 @@ Database.wallet = require("../models/user/wallet/wallet")(
 );
 Database.sequelize = sequelize;
 
-
+Database?.user?.hasMany(Database.listenerProfile, {
+  foreignKey: "listenerId",
+  as: "listenerProfileData",
+});
+Database?.user?.hasMany(Database.feedback, {
+  foreignKey: "listenerId",
+  as: "ratingData",
+});
+Database?.user?.hasMany(Database.session, {
+  foreignKey: "listener_id",
+  as: "listenerSessionData",
+});
   Database.sequelize.sync({ force: false }).then(() => {
     console.log("yes sync resync done");
   });
