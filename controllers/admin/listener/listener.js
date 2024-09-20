@@ -3,7 +3,8 @@ const Database = require("../../../connections/connection");
 
 const Auth = Database.user;
 const Questions = Database.questions;
-
+const Session = Database.session;
+const ListenerProfile = Database.listenerProfile;
 const listenerRequestList = async (req, res) => {
   try {
     const listener_request_list = await Auth.findAll({
@@ -148,7 +149,15 @@ const listenerRequestApproval = async (req, res) => {
 };
 const listenersList = async (req, res) => {
   try {
-    const users = await Database.user.findAll({
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+
+    const offset = (page - 1) * pageSize;
+
+    const { rows: users } = await Database.user.findAndCountAll({
+      where: {
+        role: 'listener', 
+      },
       attributes: {
         exclude: [
           "referal_code",
@@ -181,8 +190,14 @@ const listenersList = async (req, res) => {
           required: false,
         },
       ],
+      limit: pageSize,
+      offset,
     });
-
+    
+    const {count:totalRecords,rows:data} = await Database.user.findAndCountAll({
+      where: {
+        role: 'listener', 
+      }})
     const processedUsers = users.map((user) => {
       const feedbacks = user.ratingData || [];
       const totalFeedbacks = feedbacks.length;
@@ -235,12 +250,21 @@ const listenersList = async (req, res) => {
       };
     });
 
-    res.status(200).json(processedUsers);
+    res.status(200).json({
+      totalRecords:totalRecords, 
+      totalPages: Math.ceil(totalRecords / pageSize),
+      currentPage: page,
+      pageSize,
+      users: processedUsers,
+    });
   } catch (error) {
     console.error("Error fetching listeners list:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
 const listenerProfile = async (req, res) => {
   const userId = req.params.id;
 
@@ -290,7 +314,84 @@ const listenerProfile = async (req, res) => {
     });
   }
 };
+const listenerProfileRecent = async (req, res) => {
+  const { userId } = req.body;
 
+  try {
+    const sessionData = await Session.findAll({
+      where: {
+        user_id: userId,
+      },
+    });
+
+    if (!sessionData || sessionData.length === 0) {
+      return res.status(404).json({
+        message: "Session data not found",
+      });
+    }
+
+    const latestSessionsByListener = {};
+
+    sessionData.forEach((session) => {
+      const listenerId = session.listener_id;
+
+      if (
+        !latestSessionsByListener[listenerId] ||
+        new Date(session.createdAt) >
+          new Date(latestSessionsByListener[listenerId].createdAt)
+      ) {
+        latestSessionsByListener[listenerId] = session;
+      }
+    });
+
+    const latestSessionsArray = Object.values(latestSessionsByListener);
+
+    const listenerIds = latestSessionsArray.map(
+      (session) => session.listener_id
+    );
+
+    const listeners = await ListenerProfile.findAll({
+      where: {
+        listenerId: listenerIds,
+      },
+    });
+
+    const profiles = latestSessionsArray.map((session) => {
+      const listenerProfile = listeners.find(
+        (listener) => listener.listenerId === session.listener_id
+      );
+
+      const sessionData = {
+        user_id: session.user_id,
+        listenerId: listenerProfile?.listenerId
+          ? listenerProfile?.listenerId
+          : null,
+        display_name: listenerProfile?.display_name
+          ? listenerProfile?.display_name
+          : null,
+        gender: listenerProfile?.gender ? listenerProfile?.gender : null,
+        topic: listenerProfile?.topic ? listenerProfile?.topic : null,
+        service: listenerProfile?.service ? listenerProfile?.service : null,
+        about: listenerProfile?.about ? listenerProfile?.about : null,
+        image: listenerProfile?.image ? listenerProfile?.image : null,
+      };
+
+      return {
+        ...sessionData,
+      };
+    });
+
+    res.status(200).json({
+      message: "Latest listener profiles found",
+      profiles,
+    });
+  } catch (error) {
+    console.error("Error fetching listener profiles:", error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
 
 module.exports = {
   listenerRequestList,
@@ -299,5 +400,6 @@ module.exports = {
   updateQuestions,
   listenerRequestApproval,
   listenersList,
-  listenerProfile
+  listenerProfile,
+  listenerProfileRecent,
 };
