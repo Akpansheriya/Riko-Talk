@@ -10,5 +10,5 @@ listenerControllerRouter.post("/listener-request-approval",listenerController.li
 listenerControllerRouter.get("/listeners-list", listenerController.listenersList);
 listenerControllerRouter.get("/listener-profile/:id", listenerController.listenerProfile);
 listenerControllerRouter.get("/listener-profile-recent/:userId", listenerController.listenerProfileRecent);
-
+listenerControllerRouter.get("/listener-rating-list/:userId", listenerController.ratingList);
 module.exports =  listenerControllerRouter;
