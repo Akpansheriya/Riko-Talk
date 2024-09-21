@@ -9,6 +9,6 @@ listenerControllerRouter.put("/questions/:id", listenerController.updateQuestion
 listenerControllerRouter.post("/listener-request-approval",listenerController.listenerRequestApproval);
 listenerControllerRouter.get("/listeners-list", listenerController.listenersList);
 listenerControllerRouter.get("/listener-profile/:id", listenerController.listenerProfile);
-listenerControllerRouter.get("/listener-profile-recent", listenerController.listenerProfileRecent);
+listenerControllerRouter.get("/listener-profile-recent/:userId", listenerController.listenerProfileRecent);
 
 module.exports =  listenerControllerRouter;
