@@ -154,9 +154,9 @@ const listenersList = async (req, res) => {
 
     const offset = (page - 1) * pageSize;
 
-    const { rows: users } = await Database.user.findAndCountAll({
+    const { count: totalRecords, rows: users } = await Database.user.findAndCountAll({
       where: {
-        role: 'listener', 
+        role: "listener",
       },
       attributes: {
         exclude: [
@@ -193,18 +193,16 @@ const listenersList = async (req, res) => {
       limit: pageSize,
       offset,
     });
-    
-    const {count:totalRecords,rows:data} = await Database.user.findAndCountAll({
-      where: {
-        role: 'listener', 
-      }})
+
     const processedUsers = users.map((user) => {
+      const listenerProfile = user.listenerProfileData?.[0] || null;
+      
       const feedbacks = user.ratingData || [];
       const totalFeedbacks = feedbacks.length;
-
+    
       const starCounts = [0, 0, 0, 0, 0];
       let totalStars = 0;
-
+    
       feedbacks.forEach((feedback) => {
         const rating = feedback.rating;
         if (rating >= 1 && rating <= 5) {
@@ -212,21 +210,21 @@ const listenersList = async (req, res) => {
           totalStars += rating;
         }
       });
-
+    
       const percentage = starCounts.map((count) =>
         totalFeedbacks ? (count / totalFeedbacks) * 100 : 0
       );
       const averageRating = totalFeedbacks
         ? (totalStars / totalFeedbacks).toFixed(2)
         : 0;
-
-      const sessions = user.listenerSessionData || [];
+    
       let totalDurationMinutes = 0;
-
+    
+      const sessions = user.listenerSessionData || [];
       sessions.forEach((session) => {
         totalDurationMinutes += session.total_duration;
       });
-
+    
       let formattedDuration;
       if (totalDurationMinutes < 1) {
         formattedDuration = `${(totalDurationMinutes * 60).toFixed(0)} seconds`;
@@ -235,9 +233,13 @@ const listenersList = async (req, res) => {
       } else {
         formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
       }
-
+    
+      // Destructure the user object and exclude listenerSessionData
+      const { listenerSessionData, ...userWithoutSessions } = user.toJSON();
+    
       return {
-        ...user.toJSON(),
+        ...userWithoutSessions,
+        listenerProfileData: listenerProfile,
         feedbackStats: {
           totalCount: totalFeedbacks,
           percentage: percentage,
@@ -246,12 +248,13 @@ const listenersList = async (req, res) => {
         sessionStats: {
           totalDurationMinutes,
           formattedDuration,
-        },
+        }
       };
     });
-
+    
+    
     res.status(200).json({
-      totalRecords:totalRecords, 
+      totalRecords: totalRecords,
       totalPages: Math.ceil(totalRecords / pageSize),
       currentPage: page,
       pageSize,
@@ -262,7 +265,6 @@ const listenersList = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 
 const listenerProfile = async (req, res) => {
