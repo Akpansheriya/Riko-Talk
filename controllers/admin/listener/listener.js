@@ -317,7 +317,7 @@ const listenerProfile = async (req, res) => {
   }
 };
 const listenerProfileRecent = async (req, res) => {
-  const { userId } = req.body;
+  const { userId } = req.params;
 
   try {
     const sessionData = await Session.findAll({
