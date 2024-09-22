@@ -48,7 +48,7 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   const mobile = req.body.mobile_number;
-  
+
   try {
     // Check if the user exists
     const user = await Auth.findOne({ where: { mobile_number: mobile } });
@@ -69,14 +69,15 @@ const login = async (req, res) => {
     );
 
     // Fetch the updated user
-    const updatedUser = await Auth.findOne({ where: { mobile_number: mobile } });
+    const updatedUser = await Auth.findOne({
+      where: { mobile_number: mobile },
+    });
 
     // Send the response with updated user
     res.status(200).json({
       message: "User login successfully",
       result: updatedUser,
     });
-
   } catch (error) {
     console.error("Error logging in user:", error);
     res.status(500).json({
@@ -103,7 +104,7 @@ const verification = async (req, res) => {
         { expiresIn: "24h" }
       );
       await Auth.update(
-        { isverified: true, token: token , otp:null },
+        { isverified: true, token: token, otp: null },
         { where: { id: user.id } }
       );
       return res.status(200).json({
@@ -207,5 +208,5 @@ module.exports = {
   verification,
   logout,
   deleteProfile,
-  resendOtp
+  resendOtp,
 };

@@ -14,10 +14,15 @@ const startSession = async (req, res) => {
   const { user_id, listener_id } = req.body;
 
   try {
-    const user = await User.findByPk(user_id);
-    const listener = await User.findByPk(listener_id);
+    const user = await User.findOne({ where: { id: user_id, role: "user" } });
+    const listener = await User.findOne({ where: { id: listener_id, role: "listener" } });
+    
     if (!user || !listener) {
       return res.status(404).json({ message: "User or listener not found" });
+    }
+
+    if (listener.isSessionRunning) {
+      return res.status(400).json({ message: "Listener is already in a session" });
     }
 
     const wallet = await Wallet.findOne({ where: { user_id: user.id } });
@@ -39,6 +44,9 @@ const startSession = async (req, res) => {
       amount_deducted: 0,
     });
 
+    listener.isSessionRunning = true;
+    await listener.save();
+
     const payload = {
       app_id: appID,
       room_id: roomID,
@@ -48,15 +56,12 @@ const startSession = async (req, res) => {
         2: 1,
       },
     };
-
     const token = generateToken04(appID, user.id, serverSecret, 3600, payload);
 
     socketService.startSessionSocket(roomID, token);
 
     const interval = setInterval(async () => {
-      const wallet = await Wallet.findOne({
-        where: { user_id: session.user_id },
-      });
+      const wallet = await Wallet.findOne({ where: { user_id: session.user_id } });
 
       if (!wallet || wallet.balance < 1) {
         await endSession(session.id, "Insufficient wallet balance");
@@ -88,6 +93,10 @@ const endSession = async (sessionId, reason) => {
       session.end_time = new Date();
       await session.save();
 
+      const listener = await User.findByPk(session.listener_id);
+      listener.isSessionRunning = false;
+      await listener.save();
+
       if (sessionIntervals.has(session.id)) {
         clearInterval(sessionIntervals.get(session.id));
         sessionIntervals.delete(session.id);
@@ -109,15 +118,17 @@ const endSessionManually = async (req, res) => {
       session.end_time = new Date();
       await session.save();
 
+      const listener = await User.findByPk(session.listener_id);
+      listener.isSessionRunning = false;
+      await listener.save();
+
       if (sessionIntervals.has(sessionId)) {
         clearInterval(sessionIntervals.get(sessionId));
         sessionIntervals.delete(sessionId);
       }
 
       socketService.endSessionSocket(session.room_id, reason);
-      res.status(200).send({
-        message: "Session ended",
-      });
+      res.status(200).send({ message: "Session ended" });
     } else {
       res.status(404).json({ message: "Session not found or already ended" });
     }
@@ -126,5 +137,6 @@ const endSessionManually = async (req, res) => {
     res.status(500).json({ message: "Error ending session" });
   }
 };
+
 
 module.exports = { startSession, endSession, endSessionManually };

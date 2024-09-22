@@ -28,7 +28,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     otp: {
       type: DataTypes.INTEGER,
-   
     },
     country_code: {
       type: DataTypes.STRING,
@@ -36,7 +35,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
-
     },
     mobile_number: {
       type: DataTypes.BIGINT,
@@ -50,22 +48,24 @@ module.exports = (sequelize, DataTypes) => {
     fcm_token: {
       type: DataTypes.STRING,
     },
-    token:{
-        type: DataTypes.STRING,
-    
-    },
-    is_video_call:{
-      type: DataTypes.BOOLEAN,
-    },
-    isActivate:{
-      type: DataTypes.BOOLEAN,
-    },
-    listener_request_status :{
+    token: {
       type: DataTypes.STRING,
     },
-    deactivateDate:{
+    is_video_call: {
+      type: DataTypes.BOOLEAN,
+    },
+    isActivate: {
+      type: DataTypes.BOOLEAN,
+    },
+    isSessionRunning: {
+      type: DataTypes.BOOLEAN,
+    },
+    listener_request_status: {
+      type: DataTypes.STRING,
+    },
+    deactivateDate: {
       type: DataTypes.DATE,
-    }
+    },
   });
 
   return User;
