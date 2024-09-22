@@ -297,7 +297,6 @@ const listenerProfile = async (req, res) => {
           "email",
           "fcm_token",
           "token",
-          "is_video_call",
           "isActivate",
           "listener_request_status",
           "deactivateDate",
