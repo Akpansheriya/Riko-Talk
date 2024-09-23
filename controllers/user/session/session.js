@@ -15,22 +15,28 @@ const startSession = async (req, res) => {
 
   try {
     const user = await User.findOne({ where: { id: user_id, role: "user" } });
-    const listener = await User.findOne({ where: { id: listener_id, role: "listener" } });
-    
+    const listener = await User.findOne({
+      where: { id: listener_id, role: "listener" },
+    });
+
     if (!user || !listener) {
       return res.status(404).json({ message: "User or listener not found" });
     }
 
     if (listener.isSessionRunning) {
-      return res.status(400).json({ message: "Listener is already in a session" });
+      return res
+        .status(400)
+        .json({ message: "Listener is already in a session" });
     }
 
     const wallet = await Wallet.findOne({ where: { user_id: user.id } });
     if (!wallet) {
       return res.status(404).json({ message: "Wallet not found" });
     }
-    if (wallet.balance < 1) {
-      return res.status(400).json({ message: "Insufficient wallet balance" });
+    if (wallet.balance < 3) {
+      return res
+        .status(400)
+        .json({ message: "Insufficient wallet balance (Minimum ₹3 required)" });
     }
 
     const roomID = `${user.id}-${listener.id}-${Date.now()}`;
@@ -60,25 +66,48 @@ const startSession = async (req, res) => {
 
     socketService.startSessionSocket(roomID, token);
 
-    const interval = setInterval(async () => {
-      const wallet = await Wallet.findOne({ where: { user_id: session.user_id } });
+    socketService.emitSessionData(roomID, {
+      sessionId: session.id,
+      duration: session.total_duration,
+      balance: wallet.balance,
+      amountDeducted: session.amount_deducted,
+    });
 
-      if (!wallet || wallet.balance < 1) {
+    let elapsedTimeInSeconds = 0;
+    const deductionPerSecond = 3 / 60;
+
+    const interval = setInterval(async () => {
+      const wallet = await Wallet.findOne({
+        where: { user_id: session.user_id },
+      });
+
+      if (!wallet || wallet.balance < deductionPerSecond) {
         await endSession(session.id, "Insufficient wallet balance");
         clearInterval(interval);
         sessionIntervals.delete(session.id);
       } else {
-        wallet.balance -= 1;
-        session.total_duration += 1;
-        session.amount_deducted += 1;
+        wallet.balance -= deductionPerSecond;
+        elapsedTimeInSeconds += 1;
+        session.amount_deducted += deductionPerSecond;
+
+        if (elapsedTimeInSeconds % 60 === 0) {
+          session.total_duration += 1;
+        }
+
         await wallet.save();
         await session.save();
+
+        socketService.emitSessionData(roomID, {
+          sessionId: session.id,
+          duration: session.total_duration,
+          balance: wallet.balance,
+          amountDeducted: session.amount_deducted,
+        });
       }
-    }, 60000);
+    }, 1000);
 
     sessionIntervals.set(session.id, interval);
-
-    res.json({ roomID, token });
+    res.json({ roomID, token, initialDuration: session.total_duration });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error starting session" });
@@ -122,12 +151,13 @@ const endSessionManually = async (req, res) => {
       listener.isSessionRunning = false;
       await listener.save();
 
-      if (sessionIntervals.has(sessionId)) {
-        clearInterval(sessionIntervals.get(sessionId));
-        sessionIntervals.delete(sessionId);
+      if (sessionIntervals.has(session.id)) {
+        clearInterval(sessionIntervals.get(session.id));
+        sessionIntervals.delete(session.id);
       }
 
       socketService.endSessionSocket(session.room_id, reason);
+
       res.status(200).send({ message: "Session ended" });
     } else {
       res.status(404).json({ message: "Session not found or already ended" });
@@ -137,6 +167,5 @@ const endSessionManually = async (req, res) => {
     res.status(500).json({ message: "Error ending session" });
   }
 };
-
 
 module.exports = { startSession, endSession, endSessionManually };

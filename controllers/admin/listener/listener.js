@@ -5,6 +5,7 @@ const Auth = Database.user;
 const Questions = Database.questions;
 const Session = Database.session;
 const ListenerProfile = Database.listenerProfile;
+
 const listenerRequestList = async (req, res) => {
   try {
     const listener_request_list = await Auth.findAll({
@@ -279,7 +280,6 @@ const listenersList = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
 const listenerProfile = async (req, res) => {
   const userId = req.params.id;
 
@@ -523,9 +523,6 @@ const ratingList = async (req, res) => {
       },
       ...userWithoutSessions,
       ratingData: feedbacks,
-     
-     
-     
     };
 
     res.status(200).json({
@@ -537,9 +534,6 @@ const ratingList = async (req, res) => {
   }
 };
 
-
-
-
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -549,5 +543,5 @@ module.exports = {
   listenersList,
   listenerProfile,
   listenerProfileRecent,
-  ratingList
+  ratingList,
 };
