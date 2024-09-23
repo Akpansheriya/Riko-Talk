@@ -11,7 +11,8 @@ userControllerRouter.post("/login", usersController.login);
 userControllerRouter.post("/resend-otp", usersController.resendOtp);
 userControllerRouter.post("/verification", usersController.verification);
 userControllerRouter.post("/logout", usersController.logout);
-
+userControllerRouter.post("/login-2-factor", usersController.login2Factor);
+userControllerRouter.post("/verify-2-factor", usersController.verifyOtp2factor);
 
 // listener profile
 userControllerRouter.post("/listener-request",listenersController.listenerRequest);

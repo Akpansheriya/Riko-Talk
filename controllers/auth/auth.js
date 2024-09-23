@@ -1,7 +1,7 @@
 const Database = require("../../connections/connection");
 const Auth = Database.user;
 const jwt = require("jsonwebtoken");
-
+const axios = require("axios");
 const register = async (req, res) => {
   const mobile = req.body.mobile_number;
   const user = await Auth.findOne({ where: { mobile_number: mobile } });
@@ -202,6 +202,108 @@ const resendOtp = async (req, res) => {
       });
   }
 };
+const sendOtp = async (phoneNumber) => {
+  const apiKey = "a1bdab49-798c-11ef-8b17-0200cd936042";
+  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN`;
+
+  try {
+    const response = await axios.get(url);
+    if (response.data.Status === "Success") {
+      console.log("OTP sent successfully");
+      return response.data;
+    } else {
+      console.log("Error sending OTP:", response.data.Details);
+      throw new Error("OTP sending failed");
+    }
+  } catch (error) {
+    console.error("Error:", error.message);
+    throw new Error("Failed to send OTP");
+  }
+};
+
+const login2Factor = async (req, res) => {
+  const mobile = req.body.mobile_number;
+
+  try {
+    const user = await Auth.findOne({ where: { mobile_number: mobile } });
+
+    if (!user) {
+      return res.status(409).json({
+        message: "User does not exist",
+      });
+    }
+
+    const otpResponse = await sendOtp(mobile);
+
+    await Auth.update(
+      { otp_session_id: otpResponse.Details },
+      { where: { mobile_number: mobile } }
+    );
+
+    const updatedUser = await Auth.findOne({
+      where: { mobile_number: mobile },
+    });
+
+    res.status(200).json({
+      message: "OTP sent successfully",
+      result: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error logging in user:", error);
+    res.status(500).json({
+      message: "Error logging in user",
+      error: error.message,
+    });
+  }
+};
+const verifyOtp2factor = async (req, res) => {
+  const { mobile_number, otp_input } = req.body;
+
+  try {
+    const user = await Auth.findOne({ where: { mobile_number } });
+
+    if (!user || !user.otp_session_id) {
+      return res.status(404).json({ message: "User or OTP session not found" });
+    }
+
+    const apiKey = "a1bdab49-798c-11ef-8b17-0200cd936042";
+    const url = `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY/${user.otp_session_id}/${otp_input}`;
+
+    const response = await axios.get(url);
+
+    if (response.data.Status === "Success") {
+      const token = jwt.sign(
+        { id: user.id, mobile_number: user.mobile_number },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
+      await Auth.update(
+        { isverified: true, token: token, otp_session_id: null },
+        { where: { mobile_number: user.mobile_number } }
+      );
+
+      return res.status(200).json({
+        isverified: true,
+        message: "Verified successfully",
+        token: token,
+        user,
+      });
+    } else {
+      return res.status(400).json({
+        isverified: false,
+        message: "Invalid OTP",
+      });
+    }
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    return res.status(500).json({
+      message: "Error verifying OTP",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -209,4 +311,6 @@ module.exports = {
   logout,
   deleteProfile,
   resendOtp,
+  login2Factor,
+  verifyOtp2factor,
 };
