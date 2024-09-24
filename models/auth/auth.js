@@ -1,37 +1,42 @@
+const crypto = require('crypto'); 
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define("user", {
     id: {
-      type: DataTypes.UUID,
+      type: DataTypes.STRING(30),
       allowNull: false,
       primaryKey: true,
-      defaultValue: DataTypes.UUIDV4,
+      defaultValue: () => {
+        return crypto.randomBytes(16).toString('hex').substring(0, 30); 
+      },
     },
+    
     fullName: {
       type: DataTypes.STRING,
-      allowNULL: false,
+      allowNull: false,
     },
     nationality: {
       type: DataTypes.STRING,
-      allowNULL: false,
+      allowNull: false,
     },
     state: {
       type: DataTypes.STRING,
-      allowNULL: false,
+      allowNull: false,
     },
     referal_code: {
       type: DataTypes.STRING,
-      allowNULL: false,
+      allowNull: false,
     },
     role: {
       type: DataTypes.STRING,
-      allowNULL: false,
+      allowNull: false,
     },
     otp: {
       type: DataTypes.INTEGER,
     },
     country_code: {
       type: DataTypes.STRING,
-      allowNULL: false,
+      allowNull: false,
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
