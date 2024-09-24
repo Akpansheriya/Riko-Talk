@@ -1,6 +1,4 @@
-
-const { Auth } = require('../models/auth/auth');
-
+const { Auth } = require("../models/auth/auth");
 
 const deleteOldInactiveUsers = async () => {
   try {
@@ -11,9 +9,9 @@ const deleteOldInactiveUsers = async () => {
       where: {
         isActivate: false,
         deactivateDate: {
-          [Op.lte]: thirtyDaysAgo
-        }
-      }
+          [Op.lte]: thirtyDaysAgo,
+        },
+      },
     });
 
     for (const user of usersToDelete) {
@@ -22,9 +20,8 @@ const deleteOldInactiveUsers = async () => {
       console.log(`Deleted user with ID: ${user.id}`);
     }
   } catch (error) {
-    console.error('Error deleting old inactive users:', error);
+    console.error("Error deleting old inactive users:", error);
   }
 };
-
 
 module.exports = deleteOldInactiveUsers;

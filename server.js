@@ -9,9 +9,9 @@ const dotenv = require("dotenv");
 dotenv.config({ path: "./connections/config.env" });
 const routers = require("./routes/main/mainRoute");
 const { sequelize } = require("./connections/connection");
-const schedule = require('node-schedule');
-const sessionController = require('./controllers/user/session/session');
-const socketService = require('./services/socketService');
+const schedule = require("node-schedule");
+const sessionController = require("./controllers/user/session/session");
+const socketService = require("./services/socketService");
 
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -32,7 +32,10 @@ io.on("connection", (socket) => {
 
   socket.on("startSession", async ({ user_id, listener_id }) => {
     try {
-      const { roomID, token } = await sessionController.startSession({ user_id, listener_id });
+      const { roomID, token } = await sessionController.startSession({
+        user_id,
+        listener_id,
+      });
       socket.emit("sessionStarted", { roomID, token });
     } catch (error) {
       socket.emit("error", { message: error.message });
@@ -66,7 +69,7 @@ sequelize
     console.log("Error synchronizing models with the database:", err);
   });
 
-schedule.scheduleJob('0 0 * * *', () => {
-  console.log('Running scheduled task: deleteOldInactiveUsers');
+schedule.scheduleJob("0 0 * * *", () => {
+  console.log("Running scheduled task: deleteOldInactiveUsers");
   job();
 });

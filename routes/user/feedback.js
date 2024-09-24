@@ -4,5 +4,4 @@ const feedbackControllerRouter = express.Router();
 
 feedbackControllerRouter.post("/feedback", feedback.feedback);
 
-
-module.exports =  feedbackControllerRouter;
+module.exports = feedbackControllerRouter;

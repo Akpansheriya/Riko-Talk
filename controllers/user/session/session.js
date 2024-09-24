@@ -6,7 +6,7 @@ const Wallet = Database.wallet;
 const { generateToken04 } = require("../../../services/zegoCloudService");
 const socketService = require("../../../services/socketService");
 const appID = 886950579;
-const serverSecret = "0123456789abcdef0123456789abcdef";
+const serverSecret = "5037c5dc318b8483b6c0229c44564e38";
 
 const sessionIntervals = new Map();
 

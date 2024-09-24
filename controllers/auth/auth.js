@@ -2,6 +2,10 @@ const Database = require("../../connections/connection");
 const Auth = Database.user;
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
+const { generateToken04 } = require("../../services/zegoCloudService");
+const appID = 886950579;
+const serverSecret = "5037c5dc318b8483b6c0229c44564e38";
+
 const register = async (req, res) => {
   const mobile = req.body.mobile_number;
   const user = await Auth.findOne({ where: { mobile_number: mobile } });
@@ -45,12 +49,10 @@ const register = async (req, res) => {
       });
   }
 };
-
 const login = async (req, res) => {
   const mobile = req.body.mobile_number;
 
   try {
-    // Check if the user exists
     const user = await Auth.findOne({ where: { mobile_number: mobile } });
 
     if (!user) {
@@ -59,21 +61,17 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate a new OTP
     const random4DigitNumber = Math.floor(1000 + Math.random() * 9000);
 
-    // Update the user's OTP
     await Auth.update(
       { otp: random4DigitNumber },
       { where: { mobile_number: mobile } }
     );
 
-    // Fetch the updated user
     const updatedUser = await Auth.findOne({
       where: { mobile_number: mobile },
     });
 
-    // Send the response with updated user
     res.status(200).json({
       message: "User login successfully",
       result: updatedUser,
@@ -86,10 +84,9 @@ const login = async (req, res) => {
     });
   }
 };
-
 const verification = async (req, res) => {
-  const id = req.body.id;
-  const providedOtp = req.body.otp;
+  const { id, otp: providedOtp } = req.body;
+
   try {
     const user = await Auth.findOne({ where: { id: id } });
     if (!user) {
@@ -97,21 +94,44 @@ const verification = async (req, res) => {
         message: "User does not exist",
       });
     }
+
     if (user.otp === providedOtp) {
-      const token = jwt.sign(
+      const jwtToken = jwt.sign(
         { id: user.id, mobile_number: user.mobile_number },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
       );
+
+      const roomID = `${user.id}-${Date.now()}`;
+      const payload = {
+        app_id: appID,
+        room_id: roomID,
+        user_id: user.id,
+        privilege: {
+          1: 1,
+          2: 1,
+        },
+      };
+      const roomToken = generateToken04(
+        appID,
+        user.id,
+        serverSecret,
+        3600,
+        payload
+      );
+
       await Auth.update(
-        { isverified: true, token: token, otp: null },
+        { isverified: true, token: jwtToken, otp: null },
         { where: { id: user.id } }
       );
+
+      const updatedUser = await Auth.findOne({ where: { id: user.id } });
+
       return res.status(200).json({
         isverified: true,
         message: "Verified successfully",
-        token: token,
-        user,
+        roomToken,
+        user: updatedUser,
       });
     } else {
       return res.status(400).json({
@@ -127,6 +147,7 @@ const verification = async (req, res) => {
     });
   }
 };
+
 const logout = async (req, res) => {
   const id = req.body.id;
   try {
@@ -220,21 +241,16 @@ const sendOtp = async (phoneNumber) => {
     throw new Error("Failed to send OTP");
   }
 };
-
 const login2Factor = async (req, res) => {
   const mobile = req.body.mobile_number;
-
   try {
     const user = await Auth.findOne({ where: { mobile_number: mobile } });
-
     if (!user) {
       return res.status(409).json({
         message: "User does not exist",
       });
     }
-
     const otpResponse = await sendOtp(mobile);
-
     await Auth.update(
       { otp_session_id: otpResponse.Details },
       { where: { mobile_number: mobile } }
@@ -278,16 +294,36 @@ const verifyOtp2factor = async (req, res) => {
         { expiresIn: "24h" }
       );
 
+      const roomID = `${user.id}-${Date.now()}`;
+      const payload = {
+        app_id: appID,
+        room_id: roomID,
+        user_id: user.id,
+        privilege: {
+          1: 1,
+          2: 1,
+        },
+      };
+      const roomToken = generateToken04(
+        appID,
+        user.id,
+        serverSecret,
+        3600,
+        payload
+      );
+
       await Auth.update(
         { isverified: true, token: token, otp_session_id: null },
         { where: { mobile_number: user.mobile_number } }
       );
 
+      const updatedUser = await Auth.findOne({ where: { mobile_number } });
+
       return res.status(200).json({
         isverified: true,
         message: "Verified successfully",
-        token: token,
-        user,
+        roomToken,
+        user: updatedUser,
       });
     } else {
       return res.status(400).json({
