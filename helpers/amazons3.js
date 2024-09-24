@@ -1,7 +1,6 @@
 const { S3Client } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 
-
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -13,10 +12,10 @@ const s3 = new S3Client({
 const uploadToS3 = async (file, folder) => {
   try {
     const upload = new Upload({
-      client: s3,  
+      client: s3,
       params: {
         Bucket: process.env.AWS_S3_BUCKET_NAME,
-        Key: `${folder}/${file.originalname}`, 
+        Key: `${folder}/${file.originalname}`,
         Body: file.buffer,
         ContentType: file.mimetype,
       },

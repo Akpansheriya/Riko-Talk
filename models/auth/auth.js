@@ -66,9 +66,9 @@ module.exports = (sequelize, DataTypes) => {
     deactivateDate: {
       type: DataTypes.DATE,
     },
-    otp_session_id:{
+    otp_session_id: {
       type: DataTypes.STRING,
-    }
+    },
   });
 
   return User;

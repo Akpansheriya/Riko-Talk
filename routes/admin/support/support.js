@@ -5,6 +5,9 @@ const supportControllerRouter = express.Router();
 supportControllerRouter.post("/category", supportController.category);
 supportControllerRouter.get("/category-data", supportController.categoryData);
 supportControllerRouter.post("/content", supportController.content);
-supportControllerRouter.get("/content-by-category/:id", supportController.contentDataByCategory);
+supportControllerRouter.get(
+  "/content-by-category/:id",
+  supportController.contentDataByCategory
+);
 
-module.exports =  supportControllerRouter;
+module.exports = supportControllerRouter;
