@@ -26,7 +26,7 @@ app.use("/api/v1", routers);
 app.get("/", (req, res) => {
   res.send("Hello from backend side");
 });
-
+socketService.initSocket(server);
 io.on("connection", (socket) => {
   console.log("New client connected");
 

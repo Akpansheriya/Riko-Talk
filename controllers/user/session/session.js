@@ -168,4 +168,61 @@ const endSessionManually = async (req, res) => {
   }
 };
 
-module.exports = { startSession, endSession, endSessionManually };
+let activeCalls = {};
+
+const joinCall = (req, res) => {
+  const { userId, listenerId, type, status } = req.body;
+
+  if (activeCalls[listenerId]) {
+    return res.json({ message: "Listener is already in a call." });
+  }
+
+  activeCalls[listenerId] = {
+    userId,
+    listenerId,
+    socketId: "fake-socket-id",
+    type,
+    status,
+  };
+
+  return res.json({
+    message: "Call started successfully",
+    userId,
+    listenerId,
+  });
+};
+
+const updateCallStatus = (req, res) => {
+  const { listenerId, status } = req.body;
+
+  if (activeCalls[listenerId]) {
+    if (status === "accepted") {
+      return res.json({ message: "Call accepted", listenerId });
+    } else if (status === "rejected") {
+      delete activeCalls[listenerId];
+      return res.json({ message: "Call rejected", listenerId });
+    }
+  }
+
+  return res.json({ message: "No active call found." });
+};
+
+const endCall = (req, res) => {
+  const { listenerId } = req.body;
+
+  if (activeCalls[listenerId]) {
+    delete activeCalls[listenerId];
+    return res.json({ message: "Call has ended.", listenerId });
+  }
+
+  return res.json({ message: "No active call to end." });
+};
+
+module.exports = {
+  startSession,
+  endSession,
+  endSessionManually,
+  joinCall,
+  updateCallStatus,
+  endCall,
+};
