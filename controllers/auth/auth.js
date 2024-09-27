@@ -224,7 +224,7 @@ const resendOtp = async (req, res) => {
   }
 };
 const sendOtp = async (phoneNumber) => {
-  const apiKey = "a1bdab49-798c-11ef-8b17-0200cd936042";
+  const apiKey = "c381bda3-7b3e-11ef-8b17-0200cd936042";
   const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN`;
 
   try {
@@ -282,7 +282,7 @@ const verifyOtp2factor = async (req, res) => {
       return res.status(404).json({ message: "User or OTP session not found" });
     }
 
-    const apiKey = "a1bdab49-798c-11ef-8b17-0200cd936042";
+    const apiKey = "c381bda3-7b3e-11ef-8b17-0200cd936042";
     const url = `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY/${user.otp_session_id}/${otp_input}`;
 
     const response = await axios.get(url);
