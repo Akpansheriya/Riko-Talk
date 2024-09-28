@@ -15,7 +15,7 @@ const register = async (req, res) => {
       message: "User already exists",
     });
   } else {
-    const random4DigitNumber = Math.floor(1000 + Math.random() * 9000);
+    const otpResponse = await sendOtp(mobile);
     const userData = {
       fullName: req.body.fullName,
       email: req.body.email,
@@ -30,7 +30,7 @@ const register = async (req, res) => {
       fcm_token: req.body.fcm_token,
       state: req.body.state,
       referal_code: req.body.referal_code,
-      otp: random4DigitNumber,
+      otp_session_id: otpResponse.Details ,
     };
     Auth.create(userData)
       .then((result) => {
@@ -225,7 +225,7 @@ const resendOtp = async (req, res) => {
 };
 const sendOtp = async (phoneNumber) => {
   const apiKey = "c381bda3-7b3e-11ef-8b17-0200cd936042";
-  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN`;
+  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN3`;
 
   try {
     const response = await axios.get(url);

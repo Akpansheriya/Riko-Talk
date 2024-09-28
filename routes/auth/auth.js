@@ -7,12 +7,13 @@ const multer = require("multer");
 const upload = multer();
 
 userControllerRouter.post("/register", usersController.register);
-userControllerRouter.post("/login", usersController.login);
+
 userControllerRouter.post("/resend-otp", usersController.resendOtp);
-userControllerRouter.post("/verification", usersController.verification);
+// userControllerRouter.post("/login", usersController.login);
+// userControllerRouter.post("/verification", usersController.verification);
 userControllerRouter.post("/logout", usersController.logout);
-userControllerRouter.post("/login-2-factor", usersController.login2Factor);
-userControllerRouter.post("/verify-2-factor", usersController.verifyOtp2factor);
+userControllerRouter.post("/login", usersController.login2Factor);
+userControllerRouter.post("/verification", usersController.verifyOtp2factor);
 
 // listener profile
 userControllerRouter.post(
