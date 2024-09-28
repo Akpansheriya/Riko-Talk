@@ -5,6 +5,7 @@ const coupenRouter = require("../admin/coupen/coupen");
 const feedbackRouter = require("../user/feedback");
 const listenerRouter = require("../admin/listener/listener");
 const walletRouter = require("../user/wallet");
+const notificationRouter = require("../notification/notification");
 const sessionRouter = require("../user/session");
 const routers = express.Router();
 
@@ -17,4 +18,5 @@ routers.use("/feedback", feedbackRouter);
 routers.use("/listener", listenerRouter);
 routers.use("/session", sessionRouter);
 routers.use("/wallet", walletRouter);
+routers.use("/notification", notificationRouter);
 module.exports = routers;
