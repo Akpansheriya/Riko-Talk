@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     referal_code: {
       type: DataTypes.STRING,
-      allowNull: false,
+      
     },
     role: {
       type: DataTypes.STRING,

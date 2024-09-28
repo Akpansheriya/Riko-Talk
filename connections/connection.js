@@ -75,6 +75,10 @@ Database.wallet = require("../models/user/wallet/wallet")(
   sequelize,
   DataTypes
 );
+Database.blockListener = require("../models/user/block_listener/blockListener")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {
