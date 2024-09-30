@@ -207,6 +207,7 @@ const listenersList = async (req, res) => {
         id: listenerProfile?.id || null,
         listenerId: listenerProfile?.listenerId || null,
         displayName: listenerProfile?.display_name || null,
+        nichName: listenerProfile?.nick_name || null,
         gender: listenerProfile?.gender || null,
         age: listenerProfile?.age || null,
         topic: listenerProfile?.topic || null,
@@ -533,7 +534,36 @@ const ratingList = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+const updateNickName = async (req, res) => {
+  const { listenerId, nickName } = req.body;
 
+  try {
+    const listener = await ListenerProfile.findOne({
+      where: { listenerId: listenerId },
+    });
+
+    if (!listener) {
+      return res.status(404).json({
+        message: "listener not found",
+      });
+    }
+
+    await ListenerProfile.update(
+      { nick_name: nickName },
+      { where: { listenerId: listenerId } }
+    );
+
+    return res.status(200).json({
+      message: "Nick name updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating nick name:", error);
+    return res.status(500).json({
+      message: "Error updating nick name",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -544,4 +574,5 @@ module.exports = {
   listenerProfile,
   listenerProfileRecent,
   ratingList,
+  updateNickName,
 };
