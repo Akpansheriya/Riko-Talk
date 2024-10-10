@@ -45,7 +45,6 @@ const storeListenerProfile = async (req, res) => {
       dob,
     } = req.body;
 
-    // Files from the request
     const imageFile = req.files.image[0];
     const proofFile = req.files.proof[0];
 
@@ -64,11 +63,9 @@ const storeListenerProfile = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Upload files to S3
     const imageUrl = await uploadToS3(imageFile, "profiles");
     const proofUrl = await uploadToS3(proofFile, "proofs");
 
-    // Create a new listener profile
     const newListenerProfile = await ListenerProfile.create({
       listenerId,
       display_name,

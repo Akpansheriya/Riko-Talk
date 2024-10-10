@@ -35,4 +35,9 @@ listenerControllerRouter.get(
   "/listener-rating-list/:userId",
   listenerController.ratingList
 );
+listenerControllerRouter.put(
+  "/listener-nickname",
+  listenerController.updateNickName
+);
+
 module.exports = listenerControllerRouter;
