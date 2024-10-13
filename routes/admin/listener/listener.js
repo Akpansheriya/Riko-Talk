@@ -1,7 +1,15 @@
 const express = require("express");
 const listenerController = require("../../../controllers/admin/listener/listener");
 const listenerControllerRouter = express.Router();
+const multer = require('multer');
 
+
+const storage = multer.memoryStorage();
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 }, 
+});
 listenerControllerRouter.get(
   "/listener-request-list",
   listenerController.listenerRequestList
@@ -39,5 +47,12 @@ listenerControllerRouter.put(
   "/listener-nickname",
   listenerController.updateNickName
 );
-
+listenerControllerRouter.post(
+  "/story", upload.fields([{ name: 'story', maxCount: 1 }]),
+  listenerController.story
+);
+listenerControllerRouter.post(
+  "/approve-story",
+  listenerController.approvedStory  
+);
 module.exports = listenerControllerRouter;

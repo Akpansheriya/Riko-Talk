@@ -30,7 +30,7 @@ const register = async (req, res) => {
       fcm_token: req.body.fcm_token,
       state: req.body.state,
       referal_code: req.body.referal_code,
-      otp_session_id: otpResponse.Details ,
+      otp_session_id: otpResponse.Details,
     };
     Auth.create(userData)
       .then((result) => {
@@ -339,6 +339,25 @@ const verifyOtp2factor = async (req, res) => {
     });
   }
 };
+const recentUsersList = async (req, res) => {
+  try {
+    const recentUsers = await Auth.findAll({
+      where: { role: "user" },
+      order: [["createdAt", "DESC"]],
+      limit: 10,
+    });
+
+    res.status(200).send({
+      message: "recent users list",
+      recentUsersList: recentUsers,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error fetching recent users list",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   register,
@@ -349,4 +368,5 @@ module.exports = {
   resendOtp,
   login2Factor,
   verifyOtp2factor,
+  recentUsersList,
 };

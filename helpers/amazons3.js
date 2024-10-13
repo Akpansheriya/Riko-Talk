@@ -7,15 +7,18 @@ const s3 = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
+  useAccelerateEndpoint: false,  
 });
 
 const uploadToS3 = async (file, folder) => {
   try {
+    if (!file || !file.buffer) throw new Error("Invalid file data.");
+
     const upload = new Upload({
       client: s3,
       params: {
         Bucket: process.env.AWS_S3_BUCKET_NAME,
-        Key: `${folder}/${file.originalname}`,
+        Key: `${folder}/${Date.now()}-${file.originalname}`,
         Body: file.buffer,
         ContentType: file.mimetype,
       },

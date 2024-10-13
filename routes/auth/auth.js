@@ -14,6 +14,10 @@ userControllerRouter.post("/resend-otp", usersController.resendOtp);
 userControllerRouter.post("/logout", usersController.logout);
 userControllerRouter.post("/login", usersController.login2Factor);
 userControllerRouter.post("/verification", usersController.verifyOtp2factor);
+userControllerRouter.get("/recent-users", usersController.recentUsersList);
+
+
+
 
 // listener profile
 userControllerRouter.post(
@@ -28,8 +32,12 @@ userControllerRouter.post(
 userControllerRouter.post(
   "/listener-profile-setup",
   upload.fields([
-    { name: "image", maxCount: 1 },
-    { name: "proof", maxCount: 1 },
+    { name: "profileImage", maxCount: 1 },
+    { name: "displayImage", maxCount: 1 },
+    { name: "adharFront", maxCount: 1 },
+    { name: "adharBack", maxCount: 1 },
+    { name: "pancard", maxCount: 1 }
+   
   ]),
   listenersController.storeListenerProfile
 );

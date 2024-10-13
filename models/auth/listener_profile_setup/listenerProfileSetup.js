@@ -28,9 +28,10 @@ module.exports = (sequelize, DataTypes) => {
       allowNULL: false,
     },
     topic: {
-      type: DataTypes.STRING,
-      allowNULL: false,
+      type: DataTypes.JSON, 
+      allowNull: false,
     },
+    
     service: {
       type: DataTypes.STRING,
       allowNULL: false,
@@ -51,10 +52,22 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNULL: false,
     },
-    proof: {
+    display_image: {
       type: DataTypes.STRING,
       allowNULL: false,
     },
+    adhar_front: {
+      type: DataTypes.STRING,
+      allowNULL: false,
+    },
+    adhar_back :{
+      type: DataTypes.STRING,
+      allowNULL: false,
+    },
+    pancard: {
+      type: DataTypes.STRING,
+      allowNULL: false,
+    }
   });
 
   return listenerProfile;

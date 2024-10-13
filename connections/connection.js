@@ -79,6 +79,10 @@ Database.blockListener = require("../models/user/block_listener/blockListener")(
   sequelize,
   DataTypes
 );
+Database.story = require("../models/auth/story/story")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {
