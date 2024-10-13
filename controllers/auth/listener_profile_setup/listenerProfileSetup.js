@@ -45,10 +45,14 @@ const storeListenerProfile = async (req, res) => {
       dob,
     } = req.body;
 
-    const imageFile = req.files.image[0];
-    const proofFile = req.files.proof[0];
+    const profileImage = req?.files?.profileImage?.[0];
+    const displayImage = req?.files?.displayImage?.[0];
+    const adharFront = req?.files?.adharFront?.[0];
+    const adharBack = req?.files?.adharBack?.[0];
+    const panCard = req?.files?.pancard?.[0];
 
     if (
+      !listenerId ||
       !display_name ||
       !gender ||
       !age ||
@@ -57,14 +61,42 @@ const storeListenerProfile = async (req, res) => {
       !about ||
       !call_availability_duration ||
       !dob ||
-      !imageFile ||
-      !proofFile
+      !profileImage ||
+      !displayImage ||
+      !adharFront ||
+      !adharBack ||
+      !panCard
     ) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "All fields are required." });
     }
 
-    const imageUrl = await uploadToS3(imageFile, "profiles");
-    const proofUrl = await uploadToS3(proofFile, "proofs");
+    const uploads = await Promise.allSettled([
+      uploadToS3(profileImage, "profiles"),
+      uploadToS3(displayImage, "profiles"),
+      uploadToS3(adharFront, "proofs"),
+      uploadToS3(adharBack, "proofs"),
+      uploadToS3(panCard, "proofs"),
+    ]);
+
+    const [
+      profileImageUrl,
+      displayImageUrl,
+      adharFrontUrl,
+      adharBackUrl,
+      panCardUrl,
+    ] = uploads.map((result) =>
+      result.status === "fulfilled" ? result.value : null
+    );
+
+    if (
+      !profileImageUrl ||
+      !displayImageUrl ||
+      !adharFrontUrl ||
+      !adharBackUrl ||
+      !panCardUrl
+    ) {
+      return res.status(500).json({ message: "Failed to upload some files." });
+    }
 
     const newListenerProfile = await ListenerProfile.create({
       listenerId,
@@ -76,29 +108,31 @@ const storeListenerProfile = async (req, res) => {
       about,
       call_availability_duration,
       dob,
-      image: imageUrl,
-      proof: proofUrl,
+      image: profileImageUrl,
+      display_image: displayImageUrl,
+      adhar_front: adharFrontUrl,
+      adhar_back: adharBackUrl,
+      pancard: panCardUrl,
     });
 
-    if (listenerId) {
-      await Auth.update(
-        { listener_request_status: "documents in review" },
-        { where: { id: listenerId } }
-      );
-    }
+    Auth.update(
+      { listener_request_status: "documents in review" },
+      { where: { id: listenerId } }
+    ).catch((error) => console.error("Error updating listener status:", error));
 
-    return res.status(201).json({
-      message: "Listener profile created successfully",
+    res.status(201).json({
+      message: "Listener profile created successfully.",
       profile: newListenerProfile,
     });
   } catch (error) {
     console.error("Error storing listener profile:", error);
-    return res.status(500).json({
-      message: "Error storing listener profile",
+    res.status(500).json({
+      message: "Error storing listener profile.",
       error: error.message,
     });
   }
 };
+
 const submitForm = async (req, res) => {
   try {
     const {

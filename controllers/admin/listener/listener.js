@@ -1,11 +1,11 @@
 const sendEmail = require("../../../middlewares/email-sender/emailSender");
 const Database = require("../../../connections/connection");
-
+const uploadToS3 = require("../../../helpers/amazons3");
 const Auth = Database.user;
 const Questions = Database.questions;
 const Session = Database.session;
+const Story = Database.story;
 const ListenerProfile = Database.listenerProfile;
-
 const listenerRequestList = async (req, res) => {
   try {
     const listener_request_list = await Auth.findAll({
@@ -564,6 +564,80 @@ const updateNickName = async (req, res) => {
     });
   }
 };
+const story = async (req, res) => {
+  try {
+    const { listenerId } = req.body;
+    const file = req.files?.story?.[0];
+
+    if (!listenerId || !file) {
+      return res.status(400).json({
+        message: "listenerId and story (image or video) are required",
+      });
+    }
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Request timed out")), 30000);
+    });
+
+    const uploadUrl = await Promise.race([
+      uploadToS3(file, "stories"),
+      timeoutPromise,
+    ]);
+
+    const story = await Story.create({
+      listenerId,
+      story: uploadUrl,
+      is_approved: false,
+    });
+
+    return res.status(201).json({
+      message: "Listener profile created successfully",
+      story: story,
+    });
+  } catch (error) {
+    console.error("Error storing listener profile:", error);
+    return res.status(500).json({
+      message: "Error storing story",
+      error: error.message,
+    });
+  }
+};
+const approvedStory = async (req, res) => {
+  try {
+    const { listenerId } = req.body;
+
+    if (!listenerId) {
+      return res.status(400).json({ message: "listenerId is required" });
+    }
+    const listenerStory = await Story.findOne({
+      where: { listenerId: listenerId },
+    });
+    if (!listenerStory) {
+      return res.status(404).json({ message: "Listener story not found" });
+    }
+    await Story.update(
+      { is_approved: true },
+      {
+        where: { listenerId: listenerId },
+        returning: true,
+      }
+    );
+
+    const updatedStory = await Story.findOne({
+      where: { listenerId: listenerId },
+    });
+
+    return res.status(200).json({
+      message: "Story approved successfully",
+      Story: updatedStory,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error approving story",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -575,4 +649,6 @@ module.exports = {
   listenerProfileRecent,
   ratingList,
   updateNickName,
+  story,
+  approvedStory,
 };
