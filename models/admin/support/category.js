@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const Category = sequelize.define("category", {
+  const supportCategory = sequelize.define("support_category", {
     id: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -12,5 +12,5 @@ module.exports = (sequelize, DataTypes) => {
     },
   });
 
-  return Category;
+  return supportCategory;
 };

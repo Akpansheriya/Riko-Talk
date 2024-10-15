@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const content = sequelize.define("content", {
+  const supportContent = sequelize.define("support_Content", {
     id: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -22,5 +22,5 @@ module.exports = (sequelize, DataTypes) => {
     },
   });
 
-  return content;
+  return supportContent;
 };
