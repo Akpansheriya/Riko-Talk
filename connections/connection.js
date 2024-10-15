@@ -39,11 +39,19 @@ Database.user = require("../models/auth/auth")(
   sequelize,
   DataTypes
 );
-Database.category = require("../models/admin/support/category")(
+Database.supportCategory = require("../models/admin/support/category")(
   sequelize,
   DataTypes
 );
-Database.content = require("../models/admin/support/content")(
+Database.supportContent = require("../models/admin/support/content")(
+  sequelize,
+  DataTypes
+);
+Database.contactCategory = require("../models/admin/contact/category")(
+  sequelize,
+  DataTypes
+);
+Database.contactContent = require("../models/admin/contact/content")(
   sequelize,
   DataTypes
 );
@@ -80,6 +88,14 @@ Database.blockListener = require("../models/user/block_listener/blockListener")(
   DataTypes
 );
 Database.story = require("../models/auth/story/story")(
+  sequelize,
+  DataTypes
+);
+Database.query = require("../models/admin/queries/query")(
+  sequelize,
+  DataTypes
+);
+Database.notification = require("../models/user/notification/notification")(
   sequelize,
   DataTypes
 );

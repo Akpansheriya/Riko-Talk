@@ -113,6 +113,99 @@ const startSession = async (req, res) => {
     res.status(500).json({ message: "Error starting session" });
   }
 };
+const startSessionSocket = async ({ user_id, listener_id }) => {
+  try {
+    const user = await User.findOne({ where: { id:user_id, role: "user" } });
+    const listener = await User.findOne({
+      where: { id: listener_id, role: "listener" },
+    });
+
+    if (!user || !listener) throw new Error("User or listener not found");
+    if (listener.isSessionRunning)
+      throw new Error("Listener is already in a session");
+
+    const wallet = await Wallet.findOne({ where: { user_id: user.id } });
+    if (!wallet || wallet.balance < 3)
+      throw new Error("Insufficient wallet balance");
+
+    const roomID = `${user.id}-${listener.id}-${Date.now()}`;
+    const session = await Session.create({
+      user_id: user.id,
+      listener_id: listener.id,
+      room_id: roomID,
+      start_time: new Date(),
+      status: "active",
+      total_duration: 0,
+      amount_deducted: 0,
+    });
+
+    listener.isSessionRunning = true;
+    await listener.save();
+
+    const payload = {
+      app_id: appID,
+      room_id: roomID,
+      user_id: user.id,
+      privilege: { 1: 1, 2: 1 },
+    };
+    const token = generateToken04(appID, user.id, serverSecret, 3600, payload);
+
+    socketService.startSessionSocket(roomID, token);
+
+    socketService.emitSessionData(roomID, {
+      sessionId: session.id,
+      duration: session.total_duration,
+      balance: wallet.balance,
+      amountDeducted: session.amount_deducted,
+    });
+
+    let elapsedTimeInSeconds = 0;
+    const deductionPerSecond = 3 / 60;
+
+    const interval = setInterval(async () => {
+      try {
+        const wallet = await Wallet.findOne({
+          where: { user_id: session.user_id },
+        });
+
+        if (!wallet || wallet.balance < deductionPerSecond) {
+          await endSession(session.id, "Insufficient wallet balance");
+          clearInterval(interval);
+          sessionIntervals.delete(session.id);
+        } else {
+          wallet.balance -= deductionPerSecond;
+          session.amount_deducted += deductionPerSecond;
+          elapsedTimeInSeconds++;
+
+          if (elapsedTimeInSeconds % 60 === 0) {
+            session.total_duration++;
+          }
+
+          await wallet.save();
+          await session.save();
+
+          socketService.emitSessionData(roomID, {
+            sessionId: session.id,
+            duration: session.total_duration,
+            balance: wallet.balance,
+            amountDeducted: session.amount_deducted,
+          });
+        }
+      } catch (error) {
+        console.error("Error during session interval:", error.message);
+        clearInterval(interval);
+        sessionIntervals.delete(session.id);
+      }
+    }, 1000);
+
+    sessionIntervals.set(session.id, interval);
+
+    return { roomID, token, initialDuration: session.total_duration,sessionId:session.id };
+  } catch (error) {
+    console.error("Error starting session:", error.message);
+    throw error;
+  }
+};
 
 const endSession = async (sessionId, reason) => {
   try {
@@ -220,6 +313,7 @@ const endCall = (req, res) => {
 
 module.exports = {
   startSession,
+  startSessionSocket,
   endSession,
   endSessionManually,
   joinCall,

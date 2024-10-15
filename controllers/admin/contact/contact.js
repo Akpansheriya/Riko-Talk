@@ -1,6 +1,6 @@
 const Database = require("../../../connections/connection");
-const Category = Database.supportCategory;
-const Content = Database.supportContent;
+const Category = Database.contactCategory;
+const Content = Database.contactContent;
 
 const category = async (req, res) => {
   try {
