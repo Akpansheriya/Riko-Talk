@@ -1,4 +1,6 @@
 const { Server } = require("socket.io");
+const { listenersList } = require("../controllers/admin/listener/listener");
+const { recentUsersList } = require("../controllers/auth/auth");
 let io;
 const activeUsers = {};
 
@@ -17,9 +19,12 @@ const initSocket = (server) => {
       },
     });
 
+
+
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
-
+      listenersList(socket)
+      recentUsersList(socket)
       socket.on("user-login", (data) => {
         console.log("data", data);
         userId = data.userId;
@@ -82,7 +87,7 @@ const initSocket = (server) => {
 
       socket.on(
         "reject-request",
-        async ({ fromUserId, toUserId, rejectedBy }) => {
+        async ({ fromUserId, toUserId, rejectedBy, sessionId }) => {
           const userSocket = activeUsers[fromUserId]?.socketId;
           console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
 
@@ -99,7 +104,7 @@ const initSocket = (server) => {
               const {
                 endSession,
               } = require("../controllers/user/session/session");
-              await endSession(fromUserId);
+              await endSession(sessionId);
 
               logAndEmit(socket, "sessionEnded", {
                 userId: fromUserId,

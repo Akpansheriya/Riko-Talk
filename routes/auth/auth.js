@@ -9,10 +9,10 @@ const upload = multer();
 userControllerRouter.post("/register", usersController.register);
 
 userControllerRouter.post("/resend-otp", usersController.resendOtp);
-// userControllerRouter.post("/login", usersController.login);
-// userControllerRouter.post("/verification", usersController.verification);
-userControllerRouter.post("/logout", usersController.logout);
-userControllerRouter.post("/login", usersController.login2Factor);
+userControllerRouter.post("/login", usersController.login);
+userControllerRouter.post("/verification", usersController.verification);
+// userControllerRouter.post("/logout", usersController.logout);
+// userControllerRouter.post("/login", usersController.login2Factor);
 userControllerRouter.post("/verification", usersController.verifyOtp2factor);
 userControllerRouter.get("/recent-users", usersController.recentUsersList);
 
@@ -26,8 +26,8 @@ userControllerRouter.post(
 );
 userControllerRouter.post("/form", listenersController.submitForm);
 userControllerRouter.post(
-  "/set-availability-video-call",
-  listenersController.setAvailabilityForVideoCall
+  "/set-availability",
+  listenersController.setAvailabilityToggle
 );
 userControllerRouter.post(
   "/listener-profile-setup",

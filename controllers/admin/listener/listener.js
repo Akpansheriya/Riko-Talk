@@ -148,10 +148,143 @@ const listenerRequestApproval = async (req, res) => {
     });
   }
 };
-const listenersList = async (req, res) => {
+// const listenersList = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const pageSize = parseInt(req.query.pageSize) || 10;
+//     const offset = (page - 1) * pageSize;
+
+//     const { count: totalRecordsData, rows: users } =
+//       await Database.user.findAndCountAll({
+//         where: {
+//           role: "listener",
+//         },
+//         attributes: {
+//           exclude: [
+//             "referal_code",
+//             "role",
+//             "otp",
+//             "country_code",
+//             "isVerified",
+//             "mobile_number",
+//             "email",
+//             "fcm_token",
+//             "token",
+//             "listener_request_status",
+//             "deactivateDate",
+//           ],
+//         },
+//         include: [
+//           {
+//             model: Database.listenerProfile,
+//             as: "listenerProfileData",
+//             required: false,
+//           },
+//           {
+//             model: Database.feedback,
+//             as: "ratingData",
+//             required: false,
+//           },
+//           {
+//             model: Database.session,
+//             as: "listenerSessionData",
+//             required: false,
+//           },
+//         ],
+//         limit: pageSize,
+//         offset,
+//       });
+//     const { count: totalRecords, rows: usersData } =
+//       await Database.user.findAndCountAll({
+//         where: {
+//           role: "listener",
+//         },
+//       });
+//     const processedUsers = users.map((user) => {
+//       const listenerProfile = user.listenerProfileData?.[0] || null;
+
+//       const listenerProfileUpdate = {
+//         id: listenerProfile?.id || null,
+//         listenerId: listenerProfile?.listenerId || null,
+//         displayName: listenerProfile?.display_name || null,
+//         nichName: listenerProfile?.nick_name || null,
+//         gender: listenerProfile?.gender || null,
+//         age: listenerProfile?.age || null,
+//         topic: listenerProfile?.topic || null,
+//         service: listenerProfile?.service || null,
+//         about: listenerProfile?.about || null,
+//         image: listenerProfile?.image || null,
+//       };
+
+//       const feedbacks = user.ratingData || [];
+//       const totalFeedbacks = feedbacks.length;
+
+//       const starCounts = [0, 0, 0, 0, 0];
+//       let totalStars = 0;
+
+//       feedbacks.forEach((feedback) => {
+//         const rating = feedback.rating;
+//         if (rating >= 1 && rating <= 5) {
+//           starCounts[rating - 1] += 1;
+//           totalStars += rating;
+//         }
+//       });
+
+//       const percentage = starCounts.map((count) =>
+//         totalFeedbacks ? (count / totalFeedbacks) * 100 : 0
+//       );
+//       const averageRating = totalFeedbacks
+//         ? (totalStars / totalFeedbacks).toFixed(2)
+//         : 0;
+
+//       let totalDurationMinutes = 0;
+//       const sessions = user.listenerSessionData || [];
+//       sessions.forEach((session) => {
+//         totalDurationMinutes += session.total_duration;
+//       });
+
+//       let formattedDuration;
+//       if (totalDurationMinutes < 1) {
+//         formattedDuration = `${(totalDurationMinutes * 60).toFixed(0)} seconds`;
+//       } else if (totalDurationMinutes < 60) {
+//         formattedDuration = `${totalDurationMinutes.toFixed(2)} minutes`;
+//       } else {
+//         formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
+//       }
+
+//       const { listenerSessionData, ratingData, ...userWithoutSessions } =
+//         user.toJSON();
+
+//       return {
+//         ...userWithoutSessions,
+//         listenerProfileData: listenerProfile ? listenerProfileUpdate : null,
+//         feedbackStats: {
+//           totalCount: totalFeedbacks,
+//           averageRating: parseFloat(averageRating),
+//         },
+//         sessionStats: {
+//           totalDurationMinutes,
+//           formattedDuration,
+//         },
+//       };
+//     });
+
+//     res.status(200).json({
+//       totalRecords,
+//       totalPages: Math.ceil(totalRecords / pageSize),
+//       currentPage: page,
+//       pageSize,
+//       users: processedUsers,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching listeners list:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+const listenersList = async (socket) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const pageSize = parseInt(req.query.pageSize) || 10;
+    const page = 1; 
+    const pageSize = 10;
     const offset = (page - 1) * pageSize;
 
     const { count: totalRecordsData, rows: users } =
@@ -194,12 +327,7 @@ const listenersList = async (req, res) => {
         limit: pageSize,
         offset,
       });
-    const { count: totalRecords, rows: usersData } =
-      await Database.user.findAndCountAll({
-        where: {
-          role: "listener",
-        },
-      });
+
     const processedUsers = users.map((user) => {
       const listenerProfile = user.listenerProfileData?.[0] || null;
 
@@ -269,16 +397,16 @@ const listenersList = async (req, res) => {
       };
     });
 
-    res.status(200).json({
-      totalRecords,
-      totalPages: Math.ceil(totalRecords / pageSize),
+    socket.emit("listenersList", {
+      totalRecords: totalRecordsData,
+      totalPages: Math.ceil(totalRecordsData / pageSize),
       currentPage: page,
       pageSize,
       users: processedUsers,
     });
   } catch (error) {
     console.error("Error fetching listeners list:", error);
-    res.status(500).json({ message: "Internal server error" });
+    socket.emit("error", { message: "Internal server error" });
   }
 };
 const listenerProfile = async (req, res) => {

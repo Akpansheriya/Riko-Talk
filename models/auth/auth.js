@@ -56,13 +56,19 @@ module.exports = (sequelize, DataTypes) => {
     token: {
       type: DataTypes.STRING,
     },
-    is_video_call: {
+    is_video_call_option: {
+      type: DataTypes.BOOLEAN,
+    },
+    is_audio_call_option: {
+      type: DataTypes.BOOLEAN,
+    },
+    is_chat_option: {
       type: DataTypes.BOOLEAN,
     },
     isActivate: {
       type: DataTypes.BOOLEAN,
     },
-    isSessionRunning: {
+    is_session_running: {
       type: DataTypes.BOOLEAN,
     },
     listener_request_status: {
