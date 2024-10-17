@@ -85,17 +85,16 @@ const login = async (req, res) => {
   }
 };
 const verification = async (req, res) => {
-  const { id, otp: providedOtp } = req.body;
+  const { mobile_number, otp_input } = req.body;
 
   try {
-    const user = await Auth.findOne({ where: { id: id } });
+    const user = await Auth.findOne({ where: { mobile_number:mobile_number } });
     if (!user) {
       return res.status(409).json({
         message: "User does not exist",
       });
     }
-
-    if (user.otp === providedOtp) {
+    if(user.otp == otp_input) {
       const jwtToken = jwt.sign(
         { id: user.id, mobile_number: user.mobile_number },
         process.env.JWT_SECRET,
@@ -339,7 +338,26 @@ const verifyOtp2factor = async (req, res) => {
     });
   }
 };
-const recentUsersList = async (req, res) => {
+// const recentUsersList = async (req, res) => {
+//   try {
+//     const recentUsers = await Auth.findAll({
+//       where: { role: "user" },
+//       order: [["createdAt", "DESC"]],
+//       limit: 10,
+//     });
+
+//     res.status(200).send({
+//       message: "recent users list",
+//       recentUsersList: recentUsers,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       message: "Error fetching recent users list",
+//       error: error.message,
+//     });
+//   }
+// };
+const recentUsersList = async (socket) => {
   try {
     const recentUsers = await Auth.findAll({
       where: { role: "user" },
@@ -347,12 +365,12 @@ const recentUsersList = async (req, res) => {
       limit: 10,
     });
 
-    res.status(200).send({
+    socket.emit("recentUsersList", {
       message: "recent users list",
       recentUsersList: recentUsers,
     });
   } catch (error) {
-    return res.status(500).json({
+    socket.emit("error", {
       message: "Error fetching recent users list",
       error: error.message,
     });

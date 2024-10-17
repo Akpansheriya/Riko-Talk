@@ -70,34 +70,14 @@ const storeListenerProfile = async (req, res) => {
       return res.status(400).json({ message: "All fields are required." });
     }
 
-    const uploads = await Promise.allSettled([
-      uploadToS3(profileImage, "profiles"),
-      uploadToS3(displayImage, "profiles"),
-      uploadToS3(adharFront, "proofs"),
-      uploadToS3(adharBack, "proofs"),
-      uploadToS3(panCard, "proofs"),
-    ]);
+    // Upload files to S3 one by one
+    const profileImageUrl = await uploadToS3(profileImage, "profiles");
+    const displayImageUrl = await uploadToS3(displayImage, "profiles");
+    const adharFrontUrl = await uploadToS3(adharFront, "proofs");
+    const adharBackUrl = await uploadToS3(adharBack, "proofs");
+    const panCardUrl = await uploadToS3(panCard, "proofs");
 
-    const [
-      profileImageUrl,
-      displayImageUrl,
-      adharFrontUrl,
-      adharBackUrl,
-      panCardUrl,
-    ] = uploads.map((result) =>
-      result.status === "fulfilled" ? result.value : null
-    );
-
-    if (
-      !profileImageUrl ||
-      !displayImageUrl ||
-      !adharFrontUrl ||
-      !adharBackUrl ||
-      !panCardUrl
-    ) {
-      return res.status(500).json({ message: "Failed to upload some files." });
-    }
-
+    // Store URLs in the database
     const newListenerProfile = await ListenerProfile.create({
       listenerId,
       display_name,
@@ -115,10 +95,11 @@ const storeListenerProfile = async (req, res) => {
       pancard: panCardUrl,
     });
 
-    Auth.update(
+    // Update listener status
+    await Auth.update(
       { listener_request_status: "documents in review" },
       { where: { id: listenerId } }
-    ).catch((error) => console.error("Error updating listener status:", error));
+    );
 
     res.status(201).json({
       message: "Listener profile created successfully.",
@@ -195,31 +176,34 @@ const submitForm = async (req, res) => {
     });
   }
 };
-const setAvailabilityForVideoCall = async (req, res) => {
-  const { userId, status } = req.body;
+const setAvailabilityToggle = async (req, res) => {
+  const { listenerId, is_video_call,is_audio_call,is_chat } = req.body;
 
   try {
     const user = await Auth.findOne({
-      where: { id: userId, role: "listener" },
+      where: { id: listenerId, role: "listener" },
     });
 
     if (!user) {
       return res.status(404).json({
-        message: "User not found",
+        message: "listener not found",
       });
     }
     await Auth.update(
       {
-        is_video_call: status,
-        listener_request_status: "approved",
+        is_video_call_option: is_video_call,
+        is_audio_call_option:is_audio_call,
+        is_chat_option:is_chat,
         role: "listener",
       },
-      { where: { id: userId } }
+      { where: { id: listenerId } }
     );
-
+    const updatedUser = await Auth.findOne({
+      where: { id: listenerId, role: "listener" },
+    });
     return res.status(200).json({
-      message: `User's video call availability set true`,
-      is_video_call: status,
+      message: `listenerId's availability set successfully`,
+     response:updatedUser
     });
   } catch (error) {
     console.error("Error updating listener request status:", error);
@@ -234,5 +218,5 @@ module.exports = {
   listenerRequest,
   submitForm,
   storeListenerProfile,
-  setAvailabilityForVideoCall,
+  setAvailabilityToggle,
 };

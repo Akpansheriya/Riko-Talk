@@ -23,7 +23,7 @@ const startSession = async (req, res) => {
       return res.status(404).json({ message: "User or listener not found" });
     }
 
-    if (listener.isSessionRunning) {
+    if (listener.is_session_running) {
       return res
         .status(400)
         .json({ message: "Listener is already in a session" });
@@ -50,7 +50,7 @@ const startSession = async (req, res) => {
       amount_deducted: 0,
     });
 
-    listener.isSessionRunning = true;
+    listener.is_session_running = true;
     await listener.save();
 
     const payload = {
@@ -121,7 +121,7 @@ const startSessionSocket = async ({ user_id, listener_id }) => {
     });
 
     if (!user || !listener) throw new Error("User or listener not found");
-    if (listener.isSessionRunning)
+    if (listener.is_session_running)
       throw new Error("Listener is already in a session");
 
     const wallet = await Wallet.findOne({ where: { user_id: user.id } });
@@ -139,7 +139,7 @@ const startSessionSocket = async ({ user_id, listener_id }) => {
       amount_deducted: 0,
     });
 
-    listener.isSessionRunning = true;
+    listener.is_session_running = true;
     await listener.save();
 
     const payload = {
@@ -216,7 +216,7 @@ const endSession = async (sessionId, reason) => {
       await session.save();
 
       const listener = await User.findByPk(session.listener_id);
-      listener.isSessionRunning = false;
+      listener.is_session_running = false;
       await listener.save();
 
       if (sessionIntervals.has(session.id)) {
@@ -241,7 +241,7 @@ const endSessionManually = async (req, res) => {
       await session.save();
 
       const listener = await User.findByPk(session.listener_id);
-      listener.isSessionRunning = false;
+      listener.is_session_running = false;
       await listener.save();
 
       if (sessionIntervals.has(session.id)) {
