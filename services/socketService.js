@@ -23,7 +23,10 @@ const initSocket = (server) => {
 
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
-      listenersList(socket)
+      socket.on("listenersList", ({ page, pageSize }) => {
+        listenersList(socket, { page, pageSize });
+      });
+      
       recentUsersList(socket)
       socket.on("user-login", (data) => {
         console.log("data", data);

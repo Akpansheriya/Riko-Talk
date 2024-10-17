@@ -281,52 +281,49 @@ const listenerRequestApproval = async (req, res) => {
 //     res.status(500).json({ message: "Internal server error" });
 //   }
 // };
-const listenersList = async (socket) => {
+const listenersList = async (socket, { page = 1, pageSize = 10 }) => {
   try {
-    const page = 1; 
-    const pageSize = 10;
     const offset = (page - 1) * pageSize;
-
-    const { count: totalRecordsData, rows: users } =
-      await Database.user.findAndCountAll({
-        where: {
-          role: "listener",
-        },
-        attributes: {
-          exclude: [
-            "referal_code",
-            "role",
-            "otp",
-            "country_code",
-            "isVerified",
-            "mobile_number",
-            "email",
-            "fcm_token",
-            "token",
-            "listener_request_status",
-            "deactivateDate",
-          ],
-        },
-        include: [
-          {
-            model: Database.listenerProfile,
-            as: "listenerProfileData",
-            required: false,
-          },
-          {
-            model: Database.feedback,
-            as: "ratingData",
-            required: false,
-          },
-          {
-            model: Database.session,
-            as: "listenerSessionData",
-            required: false,
-          },
+const {count:totalRecords , rows:userData} = await Database.user.findAndCountAll({where:{role:"listener"}})
+    const { count: totalRecordsData, rows: users } = await Database.user.findAndCountAll({
+      where: {
+        role: "listener",
+      },
+      attributes: {
+        exclude: [
+          "referal_code",
+          "role",
+          "otp",
+          "country_code",
+          "isVerified",
+          "mobile_number",
+          "email",
+          "fcm_token",
+          "token",
+          "listener_request_status",
+          "deactivateDate",
         ],
-        limit: pageSize,
-        offset,
-      });
+      },
+      include: [
+        {
+          model: Database.listenerProfile,
+          as: "listenerProfileData",
+          required: false,
+        },
+        {
+          model: Database.feedback,
+          as: "ratingData",
+          required: false,
+        },
+        {
+          model: Database.session,
+          as: "listenerSessionData",
+          required: false,
+        },
+      ],
+      limit: pageSize,
+      offset,
+    });
 
     const processedUsers = users.map((user) => {
       const listenerProfile = user.listenerProfileData?.[0] || null;
@@ -380,8 +377,7 @@ const listenersList = async (socket) => {
         formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
       }
 
-      const { listenerSessionData, ratingData, ...userWithoutSessions } =
-        user.toJSON();
+      const { listenerSessionData, ratingData, ...userWithoutSessions } = user.toJSON();
 
       return {
         ...userWithoutSessions,
@@ -398,8 +394,8 @@ const listenersList = async (socket) => {
     });
 
     socket.emit("listenersList", {
-      totalRecords: totalRecordsData,
-      totalPages: Math.ceil(totalRecordsData / pageSize),
+      totalRecords: totalRecords,
+      totalPages: Math.ceil(totalRecords / pageSize),
       currentPage: page,
       pageSize,
       users: processedUsers,
@@ -409,6 +405,7 @@ const listenersList = async (socket) => {
     socket.emit("error", { message: "Internal server error" });
   }
 };
+
 const listenerProfile = async (req, res) => {
   const userId = req.params.id;
 
