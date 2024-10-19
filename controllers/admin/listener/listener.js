@@ -802,19 +802,33 @@ const setAvailabilityToggle = async (req, res) => {
 };
 const storyList = async (req, res) => {
   try {
-   
-    const listenerStory = await Story.findAll({where:{is_approved:true}});
+    const page = parseInt(req.query.page) || 1; 
+    const pageSize = parseInt(req.query.pageSize) || 10; 
+
+    const offset = (page - 1) * pageSize;
+
+    const { count: totalRecords, rows: stories } = await Story.findAndCountAll({
+      where: { is_approved: true },
+      limit: pageSize,
+      offset: offset,
+    });
+
     return res.status(200).json({
-      message: "Story approved successfully",
-      StoriesList: listenerStory,
+      message: "Stories fetched successfully",
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / pageSize),
+      currentPage: page,
+      pageSize,
+      StoriesList: stories,
     });
   } catch (error) {
     return res.status(500).json({
-      message: "Error approving story",
+      message: "Error fetching stories",
       error: error.message,
     });
   }
 };
+
 module.exports = {
   listenerRequestList,
   listenerFormLink,
