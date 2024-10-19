@@ -90,12 +90,13 @@ const initSocket = (server) => {
             // Update the listener status
             activeUsers[toUserId].status = "in_chat";
     
-            // Emit to both user and listener about the accepted request
+            // Emit to both user and listener about the accepted request, adding `acceptedBy`
             io.to(userSocket).emit("requestAccepted", {
                 userId: fromUserId,
                 listenerId: toUserId,
                 state: "accepted",
                 type: type,
+                acceptedBy: toUserId // Assuming the listener accepted the request
             });
     
             io.to(listenerSocket).emit("requestAccepted", {
@@ -103,6 +104,7 @@ const initSocket = (server) => {
                 listenerId: toUserId,
                 state: "accepted",
                 type: type,
+                acceptedBy: toUserId // Assuming the listener accepted the request
             });
     
             try {
@@ -113,13 +115,13 @@ const initSocket = (server) => {
                     type: type
                 });
     
-                // Emit session start details to both user and listener
+                // Emit session start details to both user and listener, including `acceptedBy`
                 io.to(userSocket).emit("sessionStarted", {
-                    roomID, token, sessionId, initialDuration, type
+                    roomID, token, sessionId, initialDuration, type, acceptedBy: toUserId
                 });
     
                 io.to(listenerSocket).emit("sessionStarted", {
-                    roomID, token, sessionId, initialDuration, type
+                    roomID, token, sessionId, initialDuration, type, acceptedBy: toUserId
                 });
     
             } catch (error) {
@@ -131,6 +133,7 @@ const initSocket = (server) => {
             });
         }
     });
+    
     
 
       // Handle reject request
