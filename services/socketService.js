@@ -98,6 +98,7 @@ const initSocket = (server) => {
             const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
               user_id: fromUserId,
               listener_id: toUserId,
+              type:type
             });
 
             logAndEmit(socket, "sessionStarted", { roomID, token, sessionId, initialDuration , type:type});
