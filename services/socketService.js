@@ -5,9 +5,8 @@ let io;
 const activeUsers = {};
 
 const logAndEmit = (socket, event, data) => {
-  const response = { event, data };
-  console.log(`Event: ${event}`, response);
-  socket.emit(event, response);
+  console.log(`Event: ${event}`, data);
+  socket.emit(event, data);
 };
 
 const initSocket = (server) => {
@@ -19,20 +18,21 @@ const initSocket = (server) => {
       },
     });
 
-
-
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
-      socket.on("listenersList", ({ page, pageSize,gender, service, topic }) => {
+
+      // Handle listeners list request
+      socket.on("listenersList", ({ page, pageSize, gender, service, topic }) => {
         listenersList(socket, { page, pageSize, gender, service, topic });
       });
-      
-      recentUsersList(socket)
+
+      // Handle recent users list request
+      recentUsersList(socket);
+
+      // Handle user login
       socket.on("user-login", (data) => {
-        console.log("data", data);
-        userId = data.userId;
+        const userId = data.userId;
         if (typeof userId !== "string") {
-          console.error("Invalid userId type:", userId);
           logAndEmit(socket, "error", { message: "Invalid user ID format" });
           return;
         }
@@ -42,17 +42,34 @@ const initSocket = (server) => {
         logAndEmit(socket, "loginStatus", { userId, status: "available" });
       });
 
+      // Handle chat request
       socket.on("chat-request", ({ fromUserId, toUserId }) => {
         console.log("Chat Request:", { fromUserId, toUserId });
         const listener = activeUsers[toUserId];
+        const user = activeUsers[fromUserId];
 
         if (listener && listener.status === "available") {
           listener.status = "requested";
-          logAndEmit(socket, "receiveChatRequest", {
-            userId: fromUserId,
-            listenerId: toUserId,
-            state: "requested",
-          });
+
+          // Emit to the listener
+          if (listener.socketId) {
+            io.to(listener.socketId).emit("receiveChatRequest", {
+              userId: fromUserId,
+              listenerId: toUserId,
+              state: "requested",
+              requestBy: fromUserId,
+            });
+          }
+
+          // Emit to the user who made the request
+          if (user?.socketId) {
+            io.to(user.socketId).emit("receiveChatRequest", {
+              userId: fromUserId,
+              listenerId: toUserId,
+              state: "requested",
+              requestBy: fromUserId,
+            });
+          }
         } else {
           logAndEmit(socket, "error", {
             message: "Listener unavailable or in a chat",
@@ -60,11 +77,12 @@ const initSocket = (server) => {
         }
       });
 
+      // Handle accept request
       socket.on("accept-request", async ({ fromUserId, toUserId }) => {
         const userSocket = activeUsers[fromUserId]?.socketId;
         console.log(`Accept Request from ${fromUserId} to ${toUserId}`);
 
-        if (socket) {
+        if (userSocket) {
           activeUsers[toUserId].status = "in_chat";
           logAndEmit(socket, "requestAccepted", {
             userId: fromUserId,
@@ -73,88 +91,47 @@ const initSocket = (server) => {
           });
 
           try {
-            const {
-              startSessionSocket,
-            } = require("../controllers/user/session/session");
-            const { roomID, token,sessionId,initialDuration } = await startSessionSocket({
+            const { startSessionSocket } = require("../controllers/user/session/session");
+            const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
               user_id: fromUserId,
               listener_id: toUserId,
             });
 
-            logAndEmit(socket, "sessionStarted", { roomID, token,sessionId,initialDuration });
+            logAndEmit(socket, "sessionStarted", { roomID, token, sessionId, initialDuration });
           } catch (error) {
             logAndEmit(socket, "error", { message: error.message });
           }
         }
       });
-      socket.on(
-        "reject-request",
-        async ({ fromUserId, toUserId, rejectedBy, sessionId }) => {
-          const userSocket = activeUsers[fromUserId]?.socketId;
-          console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
-      
-          if (userSocket) {
-          
-            activeUsers[toUserId].status = "available";
-            logAndEmit(socket, "requestRejected", {
+
+      // Handle reject request
+      socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId }) => {
+        const userSocket = activeUsers[fromUserId]?.socketId;
+        console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
+
+        if (userSocket) {
+          if (activeUsers[toUserId].status === "in_chat") {
+            const { endSession } = require("../controllers/user/session/session");
+            await endSession(sessionId);
+
+            logAndEmit(socket, "sessionEnded", {
               userId: fromUserId,
               listenerId: toUserId,
-              state: "rejected",
-              processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+              sessionId: sessionId,
             });
-      
-            try {
-             
-              if (activeUsers[toUserId].status === "in_chat" ) {
-                const { endSession } = require("../controllers/user/session/session");
-                await endSession(sessionId);
-      
-                logAndEmit(socket, "sessionEnded", {
-                  userId: fromUserId,
-                  listenerId: toUserId,
-                  sessionId: sessionId,
-                });
-              }
-            } catch (error) {
-              logAndEmit(socket, "error", { message: error.message });
-            }
           }
+
+          activeUsers[toUserId].status = "available";
+          logAndEmit(socket, "requestRejected", {
+            userId: fromUserId,
+            listenerId: toUserId,
+            state: "rejected",
+            processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+          });
         }
-      );
-      // socket.on(
-      //   "reject-request",
-      //   async ({ fromUserId, toUserId, rejectedBy, sessionId }) => {
-      //     const userSocket = activeUsers[toUserId]
-      //     console.log("userSocket",userSocket)
-      //     console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
+      });
 
-      //     if (userSocket) {
-      //       activeUsers[toUserId].status = "available";
-      //       logAndEmit(socket, "requestRejected", {
-      //         userId: fromUserId,
-      //         listenerId: toUserId,
-      //         state: "rejected",
-      //         processBy: rejectedBy === "listener" ? toUserId : fromUserId,
-      //       });
-
-      //       try {
-      //         const {
-      //           endSession,
-      //         } = require("../controllers/user/session/session");
-      //         await endSession(sessionId);
-
-      //         logAndEmit(socket, "sessionEnded", {
-      //           userId: fromUserId,
-      //           listenerId: toUserId,
-      //           sessionId: fromUserId,
-      //         });
-      //       } catch (error) {
-      //         logAndEmit(socket, "error", { message: error.message });
-      //       }
-      //     }
-      //   }
-      // );
-
+      // Start session
       socket.on("startSession", async ({ user_id, listener_id }) => {
         try {
           const { roomID, token } = await sessionController.startSessionSocket({
@@ -167,6 +144,7 @@ const initSocket = (server) => {
         }
       });
 
+      // End session
       socket.on("endSession", async ({ session_id }) => {
         try {
           await sessionController.endSession(session_id);
@@ -176,6 +154,7 @@ const initSocket = (server) => {
         }
       });
 
+      // Handle disconnect
       socket.on("disconnect", () => {
         console.log(`Client disconnected: ${socket.id}`);
         for (const userId in activeUsers) {
