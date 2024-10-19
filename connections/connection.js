@@ -113,6 +113,21 @@ Database?.user?.hasMany(Database.session, {
   foreignKey: "listener_id",
   as: "listenerSessionData",
 });
+// Story Model Association
+Database.story.belongsTo(Database.listenerProfile, {
+  foreignKey: "listenerId",
+  targetKey: "listenerId", // Match `listenerId` in `ListenerProfile`
+  as: "listenerStoryData",
+});
+
+// ListenerProfile Model Association (optional if you want reverse association)
+Database.listenerProfile.hasMany(Database.story, {
+  foreignKey: "listenerId",
+  sourceKey: "listenerId", // Ensure `listenerId` is used as the reference key
+  as: "listenerStories",
+});
+
+
   Database.sequelize.sync({ force: false }).then(() => {
     console.log("yes sync resync done");
   });

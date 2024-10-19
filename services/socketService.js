@@ -23,8 +23,8 @@ const initSocket = (server) => {
 
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
-      socket.on("listenersList", ({ page, pageSize }) => {
-        listenersList(socket, { page, pageSize });
+      socket.on("listenersList", ({ page, pageSize,gender, service, topic }) => {
+        listenersList(socket, { page, pageSize, gender, service, topic });
       });
       
       recentUsersList(socket)

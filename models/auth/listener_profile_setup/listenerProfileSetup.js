@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     
     service: {
-      type: DataTypes.STRING,
+      type: DataTypes.JSON,
       allowNULL: false,
     },
     about: {

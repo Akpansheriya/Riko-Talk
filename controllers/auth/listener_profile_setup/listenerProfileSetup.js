@@ -82,7 +82,7 @@ const storeListenerProfile = async (req, res) => {
       listenerId,
       display_name,
       gender,
-      age,
+      age:parseInt(age),
       topic,
       service,
       about,
