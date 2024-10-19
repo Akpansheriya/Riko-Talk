@@ -113,7 +113,7 @@ const startSession = async (req, res) => {
     res.status(500).json({ message: "Error starting session" });
   }
 };
-const startSessionSocket = async ({ user_id, listener_id }) => {
+const startSessionSocket = async ({ user_id, listener_id,type }) => {
   try {
     const user = await User.findOne({ where: { id:user_id, role: "user" } });
     const listener = await User.findOne({
@@ -133,6 +133,7 @@ const startSessionSocket = async ({ user_id, listener_id }) => {
       user_id: user.id,
       listener_id: listener.id,
       room_id: roomID,
+      type:type,
       start_time: new Date(),
       status: "active",
       total_duration: 0,
