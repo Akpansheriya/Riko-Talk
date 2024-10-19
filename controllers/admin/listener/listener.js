@@ -763,6 +763,58 @@ const approvedStory = async (req, res) => {
     });
   }
 };
+const setAvailabilityToggle = async (req, res) => {
+  const { listenerId, is_video_call,is_audio_call,is_chat } = req.body;
+
+  try {
+    const user = await Auth.findOne({
+      where: { id: listenerId, role: "listener" },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "listener not found",
+      });
+    }
+    await Auth.update(
+      {
+        is_video_call_option: is_video_call,
+        is_audio_call_option:is_audio_call,
+        is_chat_option:is_chat,
+        role: "listener",
+      },
+      { where: { id: listenerId } }
+    );
+    const updatedUser = await Auth.findOne({
+      where: { id: listenerId, role: "listener" },
+    });
+    return res.status(200).json({
+      message: `listenerId's availability set successfully`,
+     response:updatedUser
+    });
+  } catch (error) {
+    console.error("Error updating listener request status:", error);
+    return res.status(500).json({
+      message: "Error updating listener request status",
+      error: error.message,
+    });
+  }
+};
+const storyList = async (req, res) => {
+  try {
+   
+    const listenerStory = await Story.findAll({where:{is_approved:true}});
+    return res.status(200).json({
+      message: "Story approved successfully",
+      StoriesList: listenerStory,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error approving story",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -776,4 +828,6 @@ module.exports = {
   updateNickName,
   story,
   approvedStory,
+  setAvailabilityToggle,
+  storyList
 };

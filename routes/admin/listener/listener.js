@@ -55,4 +55,12 @@ listenerControllerRouter.post(
   "/approve-story",
   listenerController.approvedStory  
 );
+listenerControllerRouter.post(
+  "/set-availability",
+  listenerController.setAvailabilityToggle
+);
+listenerControllerRouter.get(
+  "/stories",
+  listenerController.storyList
+);
 module.exports = listenerControllerRouter;

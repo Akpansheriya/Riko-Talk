@@ -25,10 +25,7 @@ userControllerRouter.post(
   listenersController.listenerRequest
 );
 userControllerRouter.post("/form", listenersController.submitForm);
-userControllerRouter.post(
-  "/set-availability",
-  listenersController.setAvailabilityToggle
-);
+
 userControllerRouter.post(
   "/listener-profile-setup",
   upload.fields([
