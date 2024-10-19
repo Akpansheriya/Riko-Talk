@@ -81,32 +81,57 @@ const initSocket = (server) => {
 
       // Handle accept request
       socket.on("accept-request", async ({ fromUserId, toUserId, type }) => {
-        const userSocket = activeUsers[fromUserId]?.socketId;
         console.log(`Accept Request from ${fromUserId} to ${toUserId}`);
-
-        if (userSocket) {
-          activeUsers[toUserId].status = "in_chat";
-          logAndEmit(socket, "requestAccepted", {
-            userId: fromUserId,
-            listenerId: toUserId,
-            state: "accepted",
-            type:type
-          });
-
-          try {
-            const { startSessionSocket } = require("../controllers/user/session/session");
-            const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
-              user_id: fromUserId,
-              listener_id: toUserId,
-              type:type
+    
+        const userSocket = activeUsers[fromUserId]?.socketId;
+        const listenerSocket = activeUsers[toUserId]?.socketId;
+    
+        if (userSocket && listenerSocket) {
+            // Update the listener status
+            activeUsers[toUserId].status = "in_chat";
+    
+            // Emit to both user and listener about the accepted request
+            io.to(userSocket).emit("requestAccepted", {
+                userId: fromUserId,
+                listenerId: toUserId,
+                state: "accepted",
+                type: type,
             });
-
-            logAndEmit(socket, "sessionStarted", { roomID, token, sessionId, initialDuration , type:type});
-          } catch (error) {
-            logAndEmit(socket, "error", { message: error.message });
-          }
+    
+            io.to(listenerSocket).emit("requestAccepted", {
+                userId: fromUserId,
+                listenerId: toUserId,
+                state: "accepted",
+                type: type,
+            });
+    
+            try {
+                const { startSessionSocket } = require("../controllers/user/session/session");
+                const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
+                    user_id: fromUserId,
+                    listener_id: toUserId,
+                    type: type
+                });
+    
+                // Emit session start details to both user and listener
+                io.to(userSocket).emit("sessionStarted", {
+                    roomID, token, sessionId, initialDuration, type
+                });
+    
+                io.to(listenerSocket).emit("sessionStarted", {
+                    roomID, token, sessionId, initialDuration, type
+                });
+    
+            } catch (error) {
+                logAndEmit(socket, "error", { message: error.message });
+            }
+        } else {
+            logAndEmit(socket, "error", {
+                message: "User or listener socket not connected",
+            });
         }
-      });
+    });
+    
 
       // Handle reject request
       socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId , type}) => {
