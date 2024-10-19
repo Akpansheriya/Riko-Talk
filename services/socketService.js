@@ -43,7 +43,7 @@ const initSocket = (server) => {
       });
 
       // Handle chat request
-      socket.on("chat-request", ({ fromUserId, toUserId }) => {
+      socket.on("chat-request", ({ fromUserId, toUserId , type }) => {
         console.log("Chat Request:", { fromUserId, toUserId });
         const listener = activeUsers[toUserId];
         const user = activeUsers[fromUserId];
@@ -58,6 +58,7 @@ const initSocket = (server) => {
               listenerId: toUserId,
               state: "requested",
               requestBy: fromUserId,
+              type:type
             });
           }
 
@@ -68,6 +69,7 @@ const initSocket = (server) => {
               listenerId: toUserId,
               state: "requested",
               requestBy: fromUserId,
+              type:type
             });
           }
         } else {
@@ -78,7 +80,7 @@ const initSocket = (server) => {
       });
 
       // Handle accept request
-      socket.on("accept-request", async ({ fromUserId, toUserId }) => {
+      socket.on("accept-request", async ({ fromUserId, toUserId, type }) => {
         const userSocket = activeUsers[fromUserId]?.socketId;
         console.log(`Accept Request from ${fromUserId} to ${toUserId}`);
 
@@ -88,6 +90,7 @@ const initSocket = (server) => {
             userId: fromUserId,
             listenerId: toUserId,
             state: "accepted",
+            type:type
           });
 
           try {
@@ -97,7 +100,7 @@ const initSocket = (server) => {
               listener_id: toUserId,
             });
 
-            logAndEmit(socket, "sessionStarted", { roomID, token, sessionId, initialDuration });
+            logAndEmit(socket, "sessionStarted", { roomID, token, sessionId, initialDuration , type:type});
           } catch (error) {
             logAndEmit(socket, "error", { message: error.message });
           }
@@ -105,7 +108,7 @@ const initSocket = (server) => {
       });
 
       // Handle reject request
-      socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId }) => {
+      socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId , type}) => {
         const userSocket = activeUsers[fromUserId]?.socketId;
         console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
 
@@ -118,6 +121,7 @@ const initSocket = (server) => {
               userId: fromUserId,
               listenerId: toUserId,
               sessionId: sessionId,
+              type:type
             });
           }
 
@@ -127,6 +131,7 @@ const initSocket = (server) => {
             listenerId: toUserId,
             state: "rejected",
             processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+            type:type
           });
         }
       });
