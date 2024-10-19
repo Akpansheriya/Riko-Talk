@@ -43,10 +43,10 @@ const initSocket = (server) => {
       });
 
       // Handle chat request
-      socket.on("chat-request", ({ fromUserId, toUserId , type }) => {
-        console.log("Chat Request:", { fromUserId, toUserId });
-        const listener = activeUsers[toUserId];
-        const user = activeUsers[fromUserId];
+      socket.on("chat-request", ({ userId, listenerId , type }) => {
+        console.log("Chat Request:", { userId, listenerId });
+        const listener = activeUsers[listenerId];
+        const user = activeUsers[userId];
 
         if (listener && listener.status === "available") {
           listener.status = "requested";
@@ -54,10 +54,10 @@ const initSocket = (server) => {
           // Emit to the listener
           if (listener.socketId) {
             io.to(listener.socketId).emit("receiveChatRequest", {
-              userId: fromUserId,
-              listenerId: toUserId,
+              userId: userId,
+              listenerId: listenerId,
               state: "requested",
-              requestBy: fromUserId,
+              requestBy: userId,
               type:type
             });
           }
@@ -65,10 +65,10 @@ const initSocket = (server) => {
           // Emit to the user who made the request
           if (user?.socketId) {
             io.to(user.socketId).emit("receiveChatRequest", {
-              userId: fromUserId,
-              listenerId: toUserId,
+              userId: userId,
+              listenerId: listenerId,
               state: "requested",
-              requestBy: fromUserId,
+              requestBy: userId,
               type:type
             });
           }
@@ -137,51 +137,51 @@ const initSocket = (server) => {
     
 
       // Handle reject request
-      socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId, type }) => {
-        console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
+      socket.on("reject-request", async ({ userId, listenerId, rejectedBy, sessionId, type }) => {
+        console.log(`Reject Request from ${userId} by ${rejectedBy}`);
     
-        const userSocket = activeUsers[fromUserId]?.socketId;
-        const listenerSocket = activeUsers[toUserId]?.socketId;
+        const userSocket = activeUsers[userId]?.socketId;
+        const listenerSocket = activeUsers[listenerId]?.socketId;
     
         if (userSocket && listenerSocket) {
             // Check if the listener is in a chat session and end it if necessary
-            if (activeUsers[toUserId].status === "in_chat") {
+            if (activeUsers[listenerId].status === "in_chat") {
                 const { endSession } = require("../controllers/user/session/session");
                 await endSession(sessionId);
     
                 // Notify both user and listener that the session has ended
                 io.to(userSocket).emit("sessionEnded", {
-                    userId: fromUserId,
-                    listenerId: toUserId,
+                    userId: userId,
+                    listenerId: listenerId,
                     sessionId: sessionId,
                     type: type
                 });
     
                 io.to(listenerSocket).emit("sessionEnded", {
-                    userId: fromUserId,
-                    listenerId: toUserId,
+                    userId: userId,
+                    listenerId: listenerId,
                     sessionId: sessionId,
                     type: type
                 });
             }
     
             // Update the listener's status to available
-            activeUsers[toUserId].status = "available";
+            activeUsers[listenerId].status = "available";
     
             // Notify both user and listener about the rejection
             io.to(userSocket).emit("requestRejected", {
-                userId: fromUserId,
-                listenerId: toUserId,
+                userId: userId,
+                listenerId: listenerId,
                 state: "rejected",
-                processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+                processBy: rejectedBy === "listener" ? listenerId : userId,
                 type: type
             });
     
             io.to(listenerSocket).emit("requestRejected", {
-                userId: fromUserId,
-                listenerId: toUserId,
+                userId: userId,
+                listenerId: listenerId,
                 state: "rejected",
-                processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+                processBy: rejectedBy === "listener" ? listenerId : userId,
                 type: type
             });
     
