@@ -7,14 +7,16 @@ const appID = 886950579;
 const serverSecret = "5037c5dc318b8483b6c0229c44564e38";
 
 const register = async (req, res) => {
-  const mobile = req.body.mobile_number;
-  const user = await Auth.findOne({ where: { mobile_number: mobile } });
+  try {
+    const mobile = req.body.mobile_number;
+    const user = await Auth.findOne({ where: { mobile_number: mobile } });
 
-  if (user) {
-    return res.status(409).json({
-      message: "User already exists",
-    });
-  } else {
+    if (user) {
+      return res.status(409).json({
+        message: "User already exists",
+      });
+    }
+
     const otpResponse = await sendOtp(mobile);
     const userData = {
       fullName: req.body.fullName,
@@ -32,23 +34,27 @@ const register = async (req, res) => {
       referal_code: req.body.referal_code,
       otp_session_id: otpResponse.Details,
     };
-    Auth.create(userData)
-      .then((result) => {
-        console.log(result);
-        res.status(201).send({
-          message: "User created",
-          result: result,
-        });
-      })
-      .catch((error) => {
-        console.error("Error creating user:", error);
-        res.status(500).send({
-          message: "Error creating user",
-          error: error,
-        });
-      });
+
+    const newUser = await Auth.create(userData);
+
+    await Database.wallet.create({
+      user_id: newUser.id,
+      balance: 0.0,
+    });
+
+    res.status(201).send({
+      message: "User created",
+      result: newUser,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).send({
+      message: "Error creating user",
+      error: error.message,
+    });
   }
 };
+
 const login = async (req, res) => {
   const mobile = req.body.mobile_number;
 
