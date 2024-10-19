@@ -87,16 +87,16 @@ const initSocket = (server) => {
         const listenerSocket = activeUsers[toUserId]?.socketId;
     
         if (userSocket && listenerSocket) {
-            // Update the listener status
+          
             activeUsers[toUserId].status = "in_chat";
     
-            // Emit to both user and listener about the accepted request, adding `acceptedBy`
+
             io.to(userSocket).emit("requestAccepted", {
                 userId: fromUserId,
                 listenerId: toUserId,
                 state: "accepted",
                 type: type,
-                acceptedBy: toUserId // Assuming the listener accepted the request
+                acceptedBy: toUserId 
             });
     
             io.to(listenerSocket).emit("requestAccepted", {
@@ -104,7 +104,7 @@ const initSocket = (server) => {
                 listenerId: toUserId,
                 state: "accepted",
                 type: type,
-                acceptedBy: toUserId // Assuming the listener accepted the request
+                acceptedBy: toUserId 
             });
     
             try {
@@ -137,33 +137,61 @@ const initSocket = (server) => {
     
 
       // Handle reject request
-      socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId , type}) => {
-        const userSocket = activeUsers[fromUserId]?.socketId;
+      socket.on("reject-request", async ({ fromUserId, toUserId, rejectedBy, sessionId, type }) => {
         console.log(`Reject Request from ${fromUserId} by ${rejectedBy}`);
-
-        if (userSocket) {
-          if (activeUsers[toUserId].status === "in_chat") {
-            const { endSession } = require("../controllers/user/session/session");
-            await endSession(sessionId);
-
-            logAndEmit(socket, "sessionEnded", {
-              userId: fromUserId,
-              listenerId: toUserId,
-              sessionId: sessionId,
-              type:type
+    
+        const userSocket = activeUsers[fromUserId]?.socketId;
+        const listenerSocket = activeUsers[toUserId]?.socketId;
+    
+        if (userSocket && listenerSocket) {
+            // Check if the listener is in a chat session and end it if necessary
+            if (activeUsers[toUserId].status === "in_chat") {
+                const { endSession } = require("../controllers/user/session/session");
+                await endSession(sessionId);
+    
+                // Notify both user and listener that the session has ended
+                io.to(userSocket).emit("sessionEnded", {
+                    userId: fromUserId,
+                    listenerId: toUserId,
+                    sessionId: sessionId,
+                    type: type
+                });
+    
+                io.to(listenerSocket).emit("sessionEnded", {
+                    userId: fromUserId,
+                    listenerId: toUserId,
+                    sessionId: sessionId,
+                    type: type
+                });
+            }
+    
+            // Update the listener's status to available
+            activeUsers[toUserId].status = "available";
+    
+            // Notify both user and listener about the rejection
+            io.to(userSocket).emit("requestRejected", {
+                userId: fromUserId,
+                listenerId: toUserId,
+                state: "rejected",
+                processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+                type: type
             });
-          }
-
-          activeUsers[toUserId].status = "available";
-          logAndEmit(socket, "requestRejected", {
-            userId: fromUserId,
-            listenerId: toUserId,
-            state: "rejected",
-            processBy: rejectedBy === "listener" ? toUserId : fromUserId,
-            type:type
-          });
+    
+            io.to(listenerSocket).emit("requestRejected", {
+                userId: fromUserId,
+                listenerId: toUserId,
+                state: "rejected",
+                processBy: rejectedBy === "listener" ? toUserId : fromUserId,
+                type: type
+            });
+    
+        } else {
+            logAndEmit(socket, "error", {
+                message: "User or listener socket not connected",
+            });
         }
-      });
+    });
+    
 
       // Start session
       socket.on("startSession", async ({ user_id, listener_id }) => {
