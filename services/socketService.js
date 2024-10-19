@@ -80,10 +80,10 @@ const initSocket = (server) => {
       });
 
       // Handle accept request
-      socket.on("accept-request", async ({ UserId, listenerId, type }) => {
-        console.log(`Accept Request from ${UserId} to ${listenerId}`);
+      socket.on("accept-request", async ({ userId, listenerId, type }) => {
+        console.log(`Accept Request from ${userId} to ${listenerId}`);
     
-        const userSocket = activeUsers[UserId]?.socketId;
+        const userSocket = activeUsers[userId]?.socketId;
         const listenerSocket = activeUsers[listenerId]?.socketId;
     
         if (userSocket && listenerSocket) {
@@ -92,7 +92,7 @@ const initSocket = (server) => {
     
 
             io.to(userSocket).emit("requestAccepted", {
-                userId: UserId,
+                userId: userId,
                 listenerId: listenerId,
                 state: "accepted",
                 type: type,
@@ -100,7 +100,7 @@ const initSocket = (server) => {
             });
     
             io.to(listenerSocket).emit("requestAccepted", {
-                userId: UserId,
+                userId: userId,
                 listenerId: listenerId,
                 state: "accepted",
                 type: type,
@@ -110,7 +110,7 @@ const initSocket = (server) => {
             try {
                 const { startSessionSocket } = require("../controllers/user/session/session");
                 const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
-                    user_id: UserId,
+                    user_id: userId,
                     listener_id: listenerId,
                     type: type
                 });
