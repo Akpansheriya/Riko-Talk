@@ -80,48 +80,48 @@ const initSocket = (server) => {
       });
 
       // Handle accept request
-      socket.on("accept-request", async ({ fromUserId, toUserId, type }) => {
-        console.log(`Accept Request from ${fromUserId} to ${toUserId}`);
+      socket.on("accept-request", async ({ UserId, listenerId, type }) => {
+        console.log(`Accept Request from ${UserId} to ${listenerId}`);
     
-        const userSocket = activeUsers[fromUserId]?.socketId;
-        const listenerSocket = activeUsers[toUserId]?.socketId;
+        const userSocket = activeUsers[UserId]?.socketId;
+        const listenerSocket = activeUsers[listenerId]?.socketId;
     
         if (userSocket && listenerSocket) {
           
-            activeUsers[toUserId].status = "in_chat";
+            activeUsers[listenerId].status = "in_chat";
     
 
             io.to(userSocket).emit("requestAccepted", {
-                userId: fromUserId,
-                listenerId: toUserId,
+                userId: UserId,
+                listenerId: listenerId,
                 state: "accepted",
                 type: type,
-                acceptedBy: toUserId 
+                acceptedBy: listenerId 
             });
     
             io.to(listenerSocket).emit("requestAccepted", {
-                userId: fromUserId,
-                listenerId: toUserId,
+                userId: UserId,
+                listenerId: listenerId,
                 state: "accepted",
                 type: type,
-                acceptedBy: toUserId 
+                acceptedBy: listenerId 
             });
     
             try {
                 const { startSessionSocket } = require("../controllers/user/session/session");
                 const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
-                    user_id: fromUserId,
-                    listener_id: toUserId,
+                    user_id: UserId,
+                    listener_id: listenerId,
                     type: type
                 });
     
                 // Emit session start details to both user and listener, including `acceptedBy`
                 io.to(userSocket).emit("sessionStarted", {
-                    roomID, token, sessionId, initialDuration, type, acceptedBy: toUserId
+                    roomID, token, sessionId, initialDuration, type, acceptedBy: listenerId
                 });
     
                 io.to(listenerSocket).emit("sessionStarted", {
-                    roomID, token, sessionId, initialDuration, type, acceptedBy: toUserId
+                    roomID, token, sessionId, initialDuration, type, acceptedBy: listenerId
                 });
     
             } catch (error) {
