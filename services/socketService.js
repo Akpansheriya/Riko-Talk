@@ -289,6 +289,7 @@ const initSocket = (server) => {
                 }
               );
 const sessionData = await Session.findOne({where:{id:sessionId}})
+console.log("sessionData",sessionData)
               // Notify both user and listener that the session has ended
               io.to(userSocket).emit("sessionEnded", {
                 userId: userId,
