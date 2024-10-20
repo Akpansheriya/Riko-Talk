@@ -141,6 +141,8 @@ const startSessionSocket = async ({ user_id, listener_id,type }) => {
     });
 
     listener.is_session_running = true;
+    user.is_session_running = true ;
+    await user.save();
     await listener.save();
 
     const payload = {
@@ -208,7 +210,7 @@ const startSessionSocket = async ({ user_id, listener_id,type }) => {
   }
 };
 
-const endSession = async (sessionId, reason) => {
+const endSession = async ({sessionId, reason}) => {
   try {
     const session = await Session.findOne({ where: { id: sessionId } });
     if (session && session.status === "active") {
@@ -217,7 +219,10 @@ const endSession = async (sessionId, reason) => {
       await session.save();
 
       const listener = await User.findByPk(session.listener_id);
+      const user = await User.findByPk(session.user_id);
       listener.is_session_running = false;
+      user.is_session_running = false;
+      await user.save();
       await listener.save();
 
       if (sessionIntervals.has(session.id)) {
