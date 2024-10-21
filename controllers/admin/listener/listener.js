@@ -283,64 +283,70 @@ const listenerRequestApproval = async (req, res) => {
 //   }
 // };
 
-
-const listenersList = async (socket, { page = 1, pageSize = 10, gender, service, topic }) => {
+const listenersList = async (
+  socket,
+  { page = 1, pageSize = 10, gender, service, topic }
+) => {
   try {
     const offset = (page - 1) * pageSize;
 
     // Fetch all listener users without applying filters in the query
-    const { count: totalRecords, rows: users } = await Database.user.findAndCountAll({
-      where: {
-        role: "listener",
-      },
-      attributes: {
-        exclude: [
-          "referal_code",
-          "role",
-          "otp",
-          "country_code",
-          "isVerified",
-          "mobile_number",
-          "email",
-          "fcm_token",
-          "token",
-          "listener_request_status",
-          "deactivateDate",
+    const { count: totalRecords, rows: users } =
+      await Database.user.findAndCountAll({
+        where: {
+          role: "listener",
+        },
+        attributes: {
+          exclude: [
+            "referal_code",
+            "role",
+            "otp",
+            "country_code",
+            "isVerified",
+            "mobile_number",
+            "email",
+            "fcm_token",
+            "token",
+            "listener_request_status",
+            "deactivateDate",
+          ],
+        },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerProfileData",
+            required: false,
+          },
+          {
+            model: Database.feedback,
+            as: "ratingData",
+            required: false,
+          },
+          {
+            model: Database.session,
+            as: "listenerSessionData",
+            required: false,
+          },
         ],
-      },
-      include: [
-        {
-          model: Database.listenerProfile,
-          as: "listenerProfileData",
-          required: false,
-        },
-        {
-          model: Database.feedback,
-          as: "ratingData",
-          required: false,
-        },
-        {
-          model: Database.session,
-          as: "listenerSessionData",
-          required: false,
-        },
-      ]
-    });
+      });
 
     // Apply manual filters (case-insensitive)
     let filteredUsers = users;
 
     if (gender) {
       const lowerCaseGender = gender.toLowerCase();
-      filteredUsers = filteredUsers.filter(user => {
+      filteredUsers = filteredUsers.filter((user) => {
         const listenerProfile = user.listenerProfileData?.[0];
-        return listenerProfile && listenerProfile.gender.toLowerCase() === lowerCaseGender;
+        return (
+          listenerProfile &&
+          listenerProfile.gender.toLowerCase() === lowerCaseGender
+        );
       });
     }
 
     if (service) {
       const lowerCaseService = service.toLowerCase();
-      filteredUsers = filteredUsers.filter(user => {
+      filteredUsers = filteredUsers.filter((user) => {
         const listenerProfile = user.listenerProfileData?.[0];
         if (listenerProfile) {
           let parsedService;
@@ -352,7 +358,10 @@ const listenersList = async (socket, { page = 1, pageSize = 10, gender, service,
           } catch (error) {
             console.warn("Failed to parse service:", listenerProfile.service);
           }
-          return Array.isArray(parsedService) && parsedService.some(s => s.toLowerCase() === lowerCaseService);
+          return (
+            Array.isArray(parsedService) &&
+            parsedService.some((s) => s.toLowerCase() === lowerCaseService)
+          );
         }
         return false;
       });
@@ -360,7 +369,7 @@ const listenersList = async (socket, { page = 1, pageSize = 10, gender, service,
 
     if (topic) {
       const lowerCaseTopic = topic.toLowerCase();
-      filteredUsers = filteredUsers.filter(user => {
+      filteredUsers = filteredUsers.filter((user) => {
         const listenerProfile = user.listenerProfileData?.[0];
         if (listenerProfile) {
           let parsedTopic;
@@ -372,7 +381,10 @@ const listenersList = async (socket, { page = 1, pageSize = 10, gender, service,
           } catch (error) {
             console.warn("Failed to parse topic:", listenerProfile.topic);
           }
-          return Array.isArray(parsedTopic) && parsedTopic.some(t => t.toLowerCase() === lowerCaseTopic);
+          return (
+            Array.isArray(parsedTopic) &&
+            parsedTopic.some((t) => t.toLowerCase() === lowerCaseTopic)
+          );
         }
         return false;
       });
@@ -415,8 +427,14 @@ const listenersList = async (socket, { page = 1, pageSize = 10, gender, service,
         nichName: listenerProfile?.nick_name || null,
         gender: listenerProfile?.gender || null,
         age: listenerProfile?.age || null,
-        topic: Array.isArray(parsedTopic) && parsedTopic.length > 0 ? parsedTopic : [],
-        service: Array.isArray(parsedService) && parsedService.length > 0 ? parsedService : [],
+        topic:
+          Array.isArray(parsedTopic) && parsedTopic.length > 0
+            ? parsedTopic
+            : [],
+        service:
+          Array.isArray(parsedService) && parsedService.length > 0
+            ? parsedService
+            : [],
         about: listenerProfile?.about || null,
         image: listenerProfile?.image || null,
       };
@@ -454,7 +472,8 @@ const listenersList = async (socket, { page = 1, pageSize = 10, gender, service,
         formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
       }
 
-      const { listenerSessionData, ratingData, ...userWithoutSessions } = user.toJSON();
+      const { listenerSessionData, ratingData, ...userWithoutSessions } =
+        user.toJSON();
 
       return {
         ...userWithoutSessions,
@@ -482,8 +501,6 @@ const listenersList = async (socket, { page = 1, pageSize = 10, gender, service,
     socket.emit("error", { message: "Internal server error" });
   }
 };
-
-
 
 const listenerProfile = async (req, res) => {
   const userId = req.params.id;
@@ -524,35 +541,46 @@ const listenerProfile = async (req, res) => {
 
     const profileData = listenerProfile.toJSON();
 
-    if (profileData.listenerProfileData && profileData.listenerProfileData.length > 0) {
-      profileData.listenerProfileData = profileData.listenerProfileData.map((data) => {
-        let parsedTopic = [];
-        let parsedService = [];
+    if (
+      profileData.listenerProfileData &&
+      profileData.listenerProfileData.length > 0
+    ) {
+      profileData.listenerProfileData = profileData.listenerProfileData.map(
+        (data) => {
+          let parsedTopic = [];
+          let parsedService = [];
 
-        try {
-          parsedTopic = JSON.parse(data.topic);
-          if (typeof parsedTopic === "string") {
-            parsedTopic = JSON.parse(parsedTopic);
+          try {
+            parsedTopic = JSON.parse(data.topic);
+            if (typeof parsedTopic === "string") {
+              parsedTopic = JSON.parse(parsedTopic);
+            }
+          } catch (err) {
+            console.warn("Failed to parse topic:", data.topic);
           }
-        } catch (err) {
-          console.warn("Failed to parse topic:", data.topic);
-        }
 
-        try {
-          parsedService = JSON.parse(data.service);
-          if (typeof parsedService === "string") {
-            parsedService = JSON.parse(parsedService);
+          try {
+            parsedService = JSON.parse(data.service);
+            if (typeof parsedService === "string") {
+              parsedService = JSON.parse(parsedService);
+            }
+          } catch (err) {
+            console.warn("Failed to parse service:", data.service);
           }
-        } catch (err) {
-          console.warn("Failed to parse service:", data.service);
-        }
 
-        return {
-          ...data,
-          topic: Array.isArray(parsedTopic) && parsedTopic.length > 0 ? parsedTopic : null,
-          service: Array.isArray(parsedService) && parsedService.length > 0 ? parsedService : null,
-        };
-      });
+          return {
+            ...data,
+            topic:
+              Array.isArray(parsedTopic) && parsedTopic.length > 0
+                ? parsedTopic
+                : null,
+            service:
+              Array.isArray(parsedService) && parsedService.length > 0
+                ? parsedService
+                : null,
+          };
+        }
+      );
     }
 
     res.status(200).json({
@@ -566,7 +594,6 @@ const listenerProfile = async (req, res) => {
     });
   }
 };
-
 
 const listenerProfileRecent = async (req, res) => {
   const { userId } = req.params;
@@ -639,11 +666,17 @@ const listenerProfileRecent = async (req, res) => {
 
       const sessionData = {
         user_id: session.user_id,
-        listenerId: listenerProfile?.listenerId || null,
+        listener_id: listenerProfile?.listenerId || null,
         display_name: listenerProfile?.display_name || null,
         gender: listenerProfile?.gender || null,
-        topic: Array.isArray(parsedTopic) && parsedTopic.length > 0 ? parsedTopic : null,
-        service: Array.isArray(parsedService) && parsedService.length > 0? parsedService : null,
+        topic:
+          Array.isArray(parsedTopic) && parsedTopic.length > 0
+            ? parsedTopic
+            : null,
+        service:
+          Array.isArray(parsedService) && parsedService.length > 0
+            ? parsedService
+            : null,
         about: listenerProfile?.about || null,
         image: listenerProfile?.image || null,
       };
@@ -895,7 +928,7 @@ const approvedStory = async (req, res) => {
   }
 };
 const setAvailabilityToggle = async (req, res) => {
-  const { listenerId, is_video_call,is_audio_call,is_chat } = req.body;
+  const { listenerId, is_video_call, is_audio_call, is_chat } = req.body;
 
   try {
     const user = await Auth.findOne({
@@ -910,8 +943,8 @@ const setAvailabilityToggle = async (req, res) => {
     await Auth.update(
       {
         is_video_call_option: is_video_call,
-        is_audio_call_option:is_audio_call,
-        is_chat_option:is_chat,
+        is_audio_call_option: is_audio_call,
+        is_chat_option: is_chat,
         role: "listener",
       },
       { where: { id: listenerId } }
@@ -921,7 +954,7 @@ const setAvailabilityToggle = async (req, res) => {
     });
     return res.status(200).json({
       message: `listenerId's availability set successfully`,
-     response:updatedUser
+      response: updatedUser,
     });
   } catch (error) {
     console.error("Error updating listener request status:", error);
@@ -933,24 +966,24 @@ const setAvailabilityToggle = async (req, res) => {
 };
 const storyList = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10 } = req.query; 
+    const { page = 1, pageSize = 10 } = req.query;
     const offset = (page - 1) * pageSize;
 
-    const { count: totalRecords, rows: listenerStories } = await Database.story.findAndCountAll({
-      where: { is_approved: true },
-      include: [
-        {
-          model: Database.listenerProfile,
-          as: "listenerStoryData",
-          required: false,
-          attributes: ["nick_name", "display_name", "display_image"],
-        },
-      ],
-      limit: parseInt(pageSize), 
-      offset: parseInt(offset), 
-    });
+    const { count: totalRecords, rows: listenerStories } =
+      await Database.story.findAndCountAll({
+        where: { is_approved: true },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerStoryData",
+            required: false,
+            attributes: ["nick_name", "display_name", "display_image"],
+          },
+        ],
+        limit: parseInt(pageSize),
+        offset: parseInt(offset),
+      });
 
-    
     const flattenedStories = listenerStories.map((story) => {
       const { listenerStoryData, ...storyData } = story.toJSON();
       return {
@@ -978,9 +1011,72 @@ const storyList = async (req, res) => {
   }
 };
 
+const sessionRecords = async (req, res) => {
+  try {
+    const listenerId = req.params.listenerId;
 
+    // Fetch all sessions for the given listener ID
+    const sessions = await Session.findAll({
+      where: {
+        listener_id: listenerId,
+      },
+    });
 
+    if (!sessions || sessions.length === 0) {
+      return res.status(200).send({
+        message: "No session records found",
+        data: [],
+      });
+    }
 
+    // Group sessions by date
+    const groupedSessions = sessions.reduce((acc, session) => {
+      const dateKey = new Date(session.createdAt).toLocaleDateString("en-GB"); // Format date to dd/mm/yyyy
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = {
+          date: dateKey,
+          totalUsers: 0,
+          listeningTime: 0,
+          totalEarnings: 0,
+        };
+      }
+      
+      // Update daily totals
+      acc[dateKey].totalUsers += 1;
+      acc[dateKey].listeningTime += session.total_duration || 0; // Use total_duration if provided
+      acc[dateKey].totalEarnings += parseFloat(session.amount_deducted) || 0;
+      
+      return acc;
+    }, {});
+
+    // Prepare report for each date
+    const reportData = Object.values(groupedSessions).map((session) => {
+      const avgListeningTime = session.totalUsers
+        ? (session.listeningTime / session.totalUsers).toFixed(2)
+        : 0;
+
+      return {
+        dailyReport: `Daily Report: ${session.date}`,
+        totalUsers: session.totalUsers,
+        listeningTime: `${session.listeningTime} Min`,
+        avgListeningTime: `${avgListeningTime} Min`,
+        earning: `₹ ${session.totalEarnings.toFixed(2)}`,
+      };
+    });
+
+    res.status(200).send({
+      message: "daily session reports",
+      reports: reportData,
+    });
+  } catch (error) {
+    console.error("Error fetching session records:", error);
+    return res.status(500).json({
+      message: "Error fetching session records",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -995,5 +1091,6 @@ module.exports = {
   story,
   approvedStory,
   setAvailabilityToggle,
-  storyList
+  storyList,
+  sessionRecords
 };

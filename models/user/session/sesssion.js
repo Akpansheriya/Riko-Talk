@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
     },
     total_duration: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.FLOAT,
       defaultValue: 0,
     },
     amount_deducted: {

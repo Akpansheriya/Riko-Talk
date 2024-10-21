@@ -6,6 +6,9 @@ const { generateToken04 } = require("../../services/zegoCloudService");
 const appID = 886950579;
 const serverSecret = "5037c5dc318b8483b6c0229c44564e38";
 
+
+// manual otp //
+
 const register = async (req, res) => {
   try {
     const mobile = req.body.mobile_number;
@@ -17,7 +20,32 @@ const register = async (req, res) => {
       });
     }
 
-    const otpResponse = await sendOtp(mobile);
+    const generatedCodes = new Set();
+    function generateRandomCode() {
+      const characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      let code = "";
+
+      for (let i = 0; i < 6; i++) {
+        const randomIndex = Math.floor(Math.random() * characters.length);
+        code += characters[randomIndex];
+      }
+
+      if (generatedCodes.has(code)) {
+        return generateRandomCode();
+      }
+
+      generatedCodes.add(code);
+      return code;
+    }
+
+    const newReferralCode = generateRandomCode();
+
+    function generateNumericOTP() {
+      return Math.floor(1000 + Math.random() * 9000);
+    }
+
+    const otp = generateNumericOTP();
+
     const userData = {
       fullName: req.body.fullName,
       email: req.body.email,
@@ -32,7 +60,8 @@ const register = async (req, res) => {
       fcm_token: req.body.fcm_token,
       state: req.body.state,
       referal_code: req.body.referal_code,
-      otp_session_id: otpResponse.Details,
+      your_referal_code: newReferralCode,
+      otp: otp,
     };
 
     const newUser = await Auth.create(userData);
@@ -41,6 +70,7 @@ const register = async (req, res) => {
       user_id: newUser.id,
       balance: 0.0,
     });
+
 
     res.status(201).send({
       message: "User created",
@@ -94,13 +124,15 @@ const verification = async (req, res) => {
   const { mobile_number, otp_input } = req.body;
 
   try {
-    const user = await Auth.findOne({ where: { mobile_number:mobile_number } });
+    const user = await Auth.findOne({
+      where: { mobile_number: mobile_number },
+    });
     if (!user) {
       return res.status(409).json({
         message: "User does not exist",
       });
     }
-    if(user.otp == otp_input) {
+    if (user.otp == otp_input) {
       const jwtToken = jwt.sign(
         { id: user.id, mobile_number: user.mobile_number },
         process.env.JWT_SECRET,
@@ -153,99 +185,81 @@ const verification = async (req, res) => {
   }
 };
 
-const logout = async (req, res) => {
-  const id = req.body.id;
-  try {
-    const user = await Auth.findOne({ where: { id: id } });
-    if (!user) {
-      return res.status(409).json({
-        message: "User does not exist",
-      });
-    } else {
-      await Auth.update(
-        { isVerified: false, token: null },
-        { where: { id: user?.id } }
-      );
-      return res.status(200).json({
-        message: "logout successfully",
-      });
-    }
-  } catch (error) {
-    console.error("logout error:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      error: error,
-    });
-  }
-};
-const deleteProfile = async (req, res) => {
-  try {
-    const { id } = req.body;
-    const user = await Auth.update(
-      { isActivate: false, deactivateDate: new Date() },
-      { where: { id: id } }
-    );
-    return res.status(200).json({
-      message: "account deactivated",
-      user: user,
-    });
-  } catch (error) {
-    console.error("deleting error:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      error: error,
-    });
-  }
-};
-const resendOtp = async (req, res) => {
-  const mobile = req.body.mobile_number;
-  const user = await Auth.findOne({ where: { mobile_number: mobile } });
+// 2factor otp //
 
-  if (!user) {
-    return res.status(409).json({
-      message: "User not exists",
-    });
-  } else {
-    const random4DigitNumber = Math.floor(1000 + Math.random() * 9000);
 
-    Auth.update(
-      { otp: random4DigitNumber },
-      { where: { mobile_number: mobile } }
-    )
-      .then((result) => {
-        console.log(result);
-        res.status(200).send({
-          message: "otp sent successfully",
-          otp: random4DigitNumber,
-        });
-      })
-      .catch((error) => {
-        console.error("Error login user:", error);
-        res.status(500).send({
-          message: "Error login user",
-          error: error,
-        });
-      });
-  }
-};
-const sendOtp = async (phoneNumber) => {
-  const apiKey = "c381bda3-7b3e-11ef-8b17-0200cd936042";
-  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN3`;
 
-  try {
-    const response = await axios.get(url);
-    if (response.data.Status === "Success") {
-      console.log("OTP sent successfully");
-      return response.data;
-    } else {
-      console.log("Error sending OTP:", response.data.Details);
-      throw new Error("OTP sending failed");
-    }
-  } catch (error) {
-    console.error("Error:", error.message);
-    throw new Error("Failed to send OTP");
-  }
-};
+// const register = async (req, res) => {
+//   try {
+//     const mobile = req.body.mobile_number;
+//     const user = await Auth.findOne({ where: { mobile_number: mobile } });
+
+//     if (user) {
+//       return res.status(409).json({
+//         message: "User already exists",
+//       });
+//     }
+//     const generatedCodes = new Set();
+
+//     function generateRandomCode() {
+//       const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+//       let code = '';
+
+//       for (let i = 0; i < 6; i++) {
+//         const randomIndex = Math.floor(Math.random() * characters.length);
+//         code += characters[randomIndex];
+//       }
+
+//       if (generatedCodes.has(code)) {
+//         return generateRandomCode();
+//       }
+
+//       generatedCodes.add(code);
+//       return code;
+//     }
+
+//     const newCode = generateRandomCode();
+
+//     const otpResponse = await sendOtp(mobile);
+//     const userData = {
+//       fullName: req.body.fullName,
+//       email: req.body.email,
+//       mobile_number: req.body.mobile_number,
+//       role: req.body.role,
+//       country_code: req.body.country_code,
+//       listener_request_status: "no request",
+//       isVerified: false,
+//       isActivate: true,
+//       deactivateDate: null,
+//       nationality: req.body.nationality,
+//       fcm_token: req.body.fcm_token,
+//       state: req.body.state,
+//       referal_code: req.body.referal_code,
+//       yoour_referal_code: newCode,
+//       otp_session_id: otpResponse.Details,
+//     };
+
+//     const newUser = await Auth.create(userData);
+
+//     await Database.wallet.create({
+//       user_id: newUser.id,
+//       balance: 0.0,
+//     });
+
+//     res.status(201).send({
+//       message: "User created",
+//       result: newUser,
+//     });
+//   } catch (error) {
+//     console.error("Error creating user:", error);
+//     res.status(500).send({
+//       message: "Error creating user",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 const login2Factor = async (req, res) => {
   const mobile = req.body.mobile_number;
   try {
@@ -344,6 +358,106 @@ const verifyOtp2factor = async (req, res) => {
     });
   }
 };
+
+
+
+const logout = async (req, res) => {
+  const id = req.body.id;
+  try {
+    const user = await Auth.findOne({ where: { id: id } });
+    if (!user) {
+      return res.status(409).json({
+        message: "User does not exist",
+      });
+    } else {
+      await Auth.update(
+        { isVerified: false, token: null },
+        { where: { id: user?.id } }
+      );
+      return res.status(200).json({
+        message: "logout successfully",
+      });
+    }
+  } catch (error) {
+    console.error("logout error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error,
+    });
+  }
+};
+const deleteProfile = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const user = await Auth.update(
+      { isActivate: false, deactivateDate: new Date() },
+      { where: { id: id } }
+    );
+    return res.status(200).json({
+      message: "account deactivated",
+      user: user,
+    });
+  } catch (error) {
+    console.error("deleting error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error,
+    });
+  }
+};
+const resendOtp = async (req, res) => {
+  const mobile = req.body.mobile_number;
+  const user = await Auth.findOne({ where: { mobile_number: mobile } });
+
+  if (!user) {
+    return res.status(409).json({
+      message: "User not exists",
+    });
+  } else {
+    const random4DigitNumber = Math.floor(1000 + Math.random() * 9000);
+
+    Auth.update(
+      { otp: random4DigitNumber },
+      { where: { mobile_number: mobile } }
+    )
+      .then((result) => {
+        console.log(result);
+        res.status(200).send({
+          message: "otp sent successfully",
+          otp: random4DigitNumber,
+        });
+      })
+      .catch((error) => {
+        console.error("Error login user:", error);
+        res.status(500).send({
+          message: "Error login user",
+          error: error,
+        });
+      });
+  }
+};
+const sendOtp = async (phoneNumber) => {
+  const apiKey = "c381bda3-7b3e-11ef-8b17-0200cd936042";
+  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN3`;
+
+  try {
+    const response = await axios.get(url);
+    if (response.data.Status === "Success") {
+      console.log("OTP sent successfully");
+      return response.data;
+    } else {
+      console.log("Error sending OTP:", response.data.Details);
+      throw new Error("OTP sending failed");
+    }
+  } catch (error) {
+    console.error("Error:", error.message);
+    throw new Error("Failed to send OTP");
+  }
+};
+
+
+
+
 // const recentUsersList = async (req, res) => {
 //   try {
 //     const recentUsers = await Auth.findAll({

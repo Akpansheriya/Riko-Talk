@@ -1,6 +1,10 @@
 const { Server } = require("socket.io");
 const { listenersList } = require("../controllers/admin/listener/listener");
 const { recentUsersList } = require("../controllers/auth/auth");
+const Database = require("../connections/connection");
+const Wallet = Database.wallet;
+const Session = Database.session;
+const Auth = Database.user;
 let io;
 const activeUsers = {};
 
@@ -22,9 +26,12 @@ const initSocket = (server) => {
       console.log(`Client connected: ${socket.id}`);
 
       // Handle listeners list request
-      socket.on("listenersList", ({ page, pageSize, gender, service, topic }) => {
-        listenersList(socket, { page, pageSize, gender, service, topic });
-      });
+      socket.on(
+        "listenersList",
+        ({ page, pageSize, gender, service, topic }) => {
+          listenersList(socket, { page, pageSize, gender, service, topic });
+        }
+      );
 
       // Handle recent users list request
       recentUsersList(socket);
@@ -43,38 +50,71 @@ const initSocket = (server) => {
       });
 
       // Handle chat request
-      socket.on("chat-request", ({ userId, listenerId , type }) => {
+      socket.on("chat-request", async ({ userId, listenerId, type }) => {
         console.log("Chat Request:", { userId, listenerId });
+
         const listener = activeUsers[listenerId];
         const user = activeUsers[userId];
+        console.log("User:", user);
+        console.log("Listener:", listener);
+        console.log("Active Users:", activeUsers);
 
-        if (listener && listener.status === "available") {
-          listener.status = "requested";
+        try {
+          // Fetch user's wallet balance
+          const userWallet = await Wallet.findOne({
+            where: { user_id: userId },
+          });
 
-          // Emit to the listener
-          if (listener.socketId) {
-            io.to(listener.socketId).emit("receiveChatRequest", {
-              userId: userId,
-              listenerId: listenerId,
-              state: "requested",
-              requestBy: userId,
-              type:type
+          // Check if balance is sufficient
+          if (!userWallet || userWallet.balance < 50) {
+            logAndEmit(socket, "error", {
+              message:
+                "Insufficient balance. Please recharge your wallet to proceed.",
             });
+            return;
           }
 
-          // Emit to the user who made the request
-          if (user?.socketId) {
-            io.to(user.socketId).emit("receiveChatRequest", {
-              userId: userId,
-              listenerId: listenerId,
-              state: "requested",
-              requestBy: userId,
-              type:type
+          // If both user and listener are available, proceed
+          if (
+            listener &&
+            listener.status === "available" &&
+            user &&
+            user.status === "available"
+          ) {
+            // Set both user and listener status to "requested"
+            activeUsers[listenerId].status = "requested";
+            activeUsers[userId].status = "requested";
+
+            // Emit to the listener
+            if (listener.socketId) {
+              io.to(listener.socketId).emit("receiveChatRequest", {
+                userId: userId,
+                listenerId: listenerId,
+                state: "requested",
+                requestBy: userId,
+                type: type,
+              });
+            }
+
+            // Emit to the user who made the request
+            if (user?.socketId) {
+              io.to(user.socketId).emit("receiveChatRequest", {
+                userId: userId,
+                listenerId: listenerId,
+                state: "requested",
+                requestBy: userId,
+                type: type,
+              });
+            }
+          } else {
+            logAndEmit(socket, "error", {
+              message: "Listener unavailable or in a chat",
             });
           }
-        } else {
+        } catch (error) {
+          console.error("Error checking wallet balance:", error);
           logAndEmit(socket, "error", {
-            message: "Listener unavailable or in a chat",
+            message: "Unable to process request. Please try again later.",
           });
         }
       });
@@ -82,117 +122,203 @@ const initSocket = (server) => {
       // Handle accept request
       socket.on("accept-request", async ({ userId, listenerId, type }) => {
         console.log(`Accept Request from ${userId} to ${listenerId}`);
-    
+
         const userSocket = activeUsers[userId]?.socketId;
         const listenerSocket = activeUsers[listenerId]?.socketId;
-    
+        console.log("userSocket", userSocket);
+        console.log("listenerSocket", listenerSocket);
+        console.log("active-users", activeUsers);
         if (userSocket && listenerSocket) {
-          
-            activeUsers[listenerId].status = "in_chat";
-    
+          activeUsers[listenerId].status = "in_chat";
+          activeUsers[userId].status = "in_chat";
+          console.log("active-users", activeUsers);
+          io.to(userSocket).emit("requestAccepted", {
+            userId: userId,
+            listenerId: listenerId,
+            state: "accepted",
+            type: type,
+            acceptedBy: listenerId,
+          });
 
-            io.to(userSocket).emit("requestAccepted", {
-                userId: userId,
-                listenerId: listenerId,
-                state: "accepted",
+          io.to(listenerSocket).emit("requestAccepted", {
+            userId: userId,
+            listenerId: listenerId,
+            state: "accepted",
+            type: type,
+            acceptedBy: listenerId,
+          });
+
+          try {
+            const {
+              startSessionSocket,
+            } = require("../controllers/user/session/session");
+            const { roomID, token, sessionId, initialDuration } =
+              await startSessionSocket({
+                user_id: userId,
+                listener_id: listenerId,
                 type: type,
-                acceptedBy: listenerId 
+              });
+
+            // Emit session start details to both user and listener, including `acceptedBy`
+            io.to(userSocket).emit("sessionStarted", {
+              roomID,
+              token,
+              sessionId,
+              initialDuration,
+              type,
+              acceptedBy: listenerId,
             });
-    
-            io.to(listenerSocket).emit("requestAccepted", {
-                userId: userId,
-                listenerId: listenerId,
-                state: "accepted",
-                type: type,
-                acceptedBy: listenerId 
+
+            io.to(listenerSocket).emit("sessionStarted", {
+              roomID,
+              token,
+              sessionId,
+              initialDuration,
+              type,
+              acceptedBy: listenerId,
             });
-    
-            try {
-                const { startSessionSocket } = require("../controllers/user/session/session");
-                const { roomID, token, sessionId, initialDuration } = await startSessionSocket({
-                    user_id: userId,
-                    listener_id: listenerId,
-                    type: type
-                });
-    
-                // Emit session start details to both user and listener, including `acceptedBy`
-                io.to(userSocket).emit("sessionStarted", {
-                    roomID, token, sessionId, initialDuration, type, acceptedBy: listenerId
-                });
-    
-                io.to(listenerSocket).emit("sessionStarted", {
-                    roomID, token, sessionId, initialDuration, type, acceptedBy: listenerId
-                });
-    
-            } catch (error) {
-                logAndEmit(socket, "error", { message: error.message });
-            }
+          } catch (error) {
+            logAndEmit(socket, "error", { message: error.message });
+          }
         } else {
-            logAndEmit(socket, "error", {
-                message: "User or listener socket not connected",
-            });
+          logAndEmit(socket, "error", {
+            message: "User or listener socket not connected",
+          });
         }
-    });
-    
-    
+      });
 
       // Handle reject request
-      socket.on("reject-request", async ({ userId, listenerId, rejectedBy, sessionId, type }) => {
-        console.log(`Reject Request from ${userId} by ${rejectedBy}`);
-    
-        const userSocket = activeUsers[userId]?.socketId;
-        const listenerSocket = activeUsers[listenerId]?.socketId;
-    
-        if (userSocket && listenerSocket) {
-            // Check if the listener is in a chat session and end it if necessary
-            if (activeUsers[listenerId].status === "in_chat") {
-                const { endSession } = require("../controllers/user/session/session");
-                await endSession(sessionId);
-    
-                // Notify both user and listener that the session has ended
-                io.to(userSocket).emit("sessionEnded", {
-                    userId: userId,
-                    listenerId: listenerId,
-                    sessionId: sessionId,
-                    type: type
-                });
-    
-                io.to(listenerSocket).emit("sessionEnded", {
-                    userId: userId,
-                    listenerId: listenerId,
-                    sessionId: sessionId,
-                    type: type
-                });
-            }
-    
-            // Update the listener's status to available
-            activeUsers[listenerId].status = "available";
-    
-            // Notify both user and listener about the rejection
-            io.to(userSocket).emit("requestRejected", {
-                userId: userId,
-                listenerId: listenerId,
-                state: "rejected",
-                processBy: rejectedBy === "listener" ? listenerId : userId,
-                type: type
-            });
-    
-            io.to(listenerSocket).emit("requestRejected", {
-                userId: userId,
-                listenerId: listenerId,
-                state: "rejected",
-                processBy: rejectedBy === "listener" ? listenerId : userId,
-                type: type
-            });
-    
-        } else {
-            logAndEmit(socket, "error", {
-                message: "User or listener socket not connected",
-            });
-        }
-    });
-    
+      socket.on(
+        "reject-request",
+        async ({ userId, listenerId, rejectedBy, type }) => {
+          console.log(`Reject Request from ${userId} by ${rejectedBy}`);
+          console.log("active-users", activeUsers);
+          const userSocket = activeUsers[userId]?.socketId;
+          const listenerSocket = activeUsers[listenerId]?.socketId;
+          console.log("userSocket", userSocket);
+          console.log("litenerSocket", listenerSocket);
+          if (userSocket && listenerSocket) {
+            console.log(
+              "------------------in condition------------------------"
+            );
+            if (
+              activeUsers[listenerId].status === "requested" &&
+              activeUsers[userId].status === "requested"
+            ) {
+              console.log("----------------endsession------------------------");
+              activeUsers[listenerId].status = "available";
+              activeUsers[userId].status = "available";
+              //   const {
+              //     endSession,
+              //   } = require("../controllers/user/session/session");
+              //   await endSession({sessionId:sessionId,reason:reason}).then((result) => {
+              //     activeUsers[listenerId].status = "available";
+              //     activeUsers[userId].status = "available";
+              //   })
 
+              //   // Notify both user and listener that the session has ended
+              //   io.to(userSocket).emit("sessionEnded", {
+              //     userId: userId,
+              //     listenerId: listenerId,
+              //     sessionId: sessionId,
+              //     type: type,
+              //   });
+
+              //   io.to(listenerSocket).emit("sessionEnded", {
+              //     userId: userId,
+              //     listenerId: listenerId,
+              //     sessionId: sessionId,
+              //     type: type,
+              //   });
+              // }
+
+              // Update the listener's status to available
+
+              // Notify both user and listener about the rejection
+              io.to(userSocket).emit("requestRejected", {
+                userId: userId,
+                listenerId: listenerId,
+                state: "rejected",
+                processBy: rejectedBy === "listener" ? listenerId : userId,
+                time: new Date(),
+                type: type,
+              });
+
+              io.to(listenerSocket).emit("requestRejected", {
+                userId: userId,
+                listenerId: listenerId,
+                state: "rejected",
+                processBy: rejectedBy === "listener" ? listenerId : userId,
+                type: type,
+                time: new Date(),
+              });
+            }
+          } else {
+            logAndEmit(socket, "error", {
+              message: "User or listener socket not connected",
+            });
+          }
+        }
+      );
+
+      socket.on(
+        "session-end",
+        async ({ userId, listenerId, rejectedBy, sessionId, reason, type }) => {
+          console.log(`Reject Request from ${userId} by ${rejectedBy}`);
+          console.log("active-users", activeUsers);
+          const userSocket = activeUsers[userId]?.socketId;
+          const listenerSocket = activeUsers[listenerId]?.socketId;
+          console.log("userSocket", userSocket);
+          console.log("litenerSocket", listenerSocket);
+          if (userSocket && listenerSocket) {
+            console.log(
+              "------------------in condition------------------------"
+            );
+            if (
+              activeUsers[listenerId].status === "in_chat" &&
+              activeUsers[userId].status === "in_chat"
+            ) {
+              console.log("----------------endsession------------------------");
+
+              const {
+                endSession,
+              } = require("../controllers/user/session/session");
+              await endSession({ sessionId: sessionId, reason: reason }).then(
+                (result) => {
+                  activeUsers[listenerId].status = "available";
+                  activeUsers[userId].status = "available";
+                }
+              );
+              const sessionData = await Session.findOne({
+                where: { id: sessionId },
+              });
+              console.log("sessionData", sessionData);
+              // Notify both user and listener that the session has ended
+              io.to(userSocket).emit("sessionEnded", {
+                userId: userId,
+                listenerId: listenerId,
+                sessionId: sessionId,
+                type: type,
+                start: sessionData.start_time,
+                end: sessionData.end_time,
+              });
+
+              io.to(listenerSocket).emit("sessionEnded", {
+                userId: userId,
+                listenerId: listenerId,
+                sessionId: sessionId,
+                type: type,
+                start: sessionData.start_time,
+                end: sessionData.end_time,
+              });
+            }
+          } else {
+            logAndEmit(socket, "error", {
+              message: "User or listener socket not connected",
+            });
+          }
+        }
+      );
       // Start session
       socket.on("startSession", async ({ user_id, listener_id }) => {
         try {
@@ -207,21 +333,53 @@ const initSocket = (server) => {
       });
 
       // End session
-      socket.on("endSession", async ({ session_id }) => {
+      socket.on("endSession", async ({ sessionId, reason }) => {
         try {
-          await sessionController.endSession(session_id);
-          logAndEmit(socket, "sessionEnded", { sessionId: session_id });
+          await sessionController.endSession({ sessionId, reason });
+          logAndEmit(socket, "sessionEnded", {
+            sessionId: sessionId,
+            reason: reason,
+          });
         } catch (error) {
           logAndEmit(socket, "error", { message: error.message });
         }
       });
 
       // Handle disconnect
-      socket.on("disconnect", () => {
+      socket.on("disconnect", async () => {
         console.log(`Client disconnected: ${socket.id}`);
+
         for (const userId in activeUsers) {
+          console.log("user",userId)
           if (activeUsers[userId].socketId === socket.id) {
             console.log(`User ${userId} disconnected.`);
+
+            try {
+              const user = await Auth.findOne({
+                where: { id: userId, role: "listener" },
+              });
+
+              if (user && user.is_audio_call_option === true || user.is_chat_option === true || user.is_video_call_option === true) {
+                await Auth.update(
+                  {
+                    is_video_call_option: false,
+                    is_audio_call_option: false,
+                    is_chat_option: false,
+                  },
+                  { where: { id: userId, role: "listener" } }
+                );
+
+                console.log(`Listener ${userId}'s availability set to false.`);
+              }else {
+                console.log(`Listener ${userId}'s disconnected`);
+              }
+            } catch (error) {
+              console.error(
+                "Error updating listener availability status:",
+                error
+              );
+            }
+
             delete activeUsers[userId];
             break;
           }
