@@ -1029,10 +1029,9 @@ const sessionRecords = async (req, res) => {
       });
     }
 
-    // Group sessions by date
     const groupedSessions = sessions.reduce((acc, session) => {
-      const dateKey = new Date(session.createdAt).toLocaleDateString("en-GB"); // Format date to dd/mm/yyyy
-      
+      const dateKey = new Date(session.createdAt).toLocaleDateString("en-GB");
+
       if (!acc[dateKey]) {
         acc[dateKey] = {
           date: dateKey,
@@ -1041,16 +1040,14 @@ const sessionRecords = async (req, res) => {
           totalEarnings: 0,
         };
       }
-      
-      // Update daily totals
+
       acc[dateKey].totalUsers += 1;
-      acc[dateKey].listeningTime += session.total_duration || 0; // Use total_duration if provided
+      acc[dateKey].listeningTime += session.total_duration || 0;
       acc[dateKey].totalEarnings += parseFloat(session.amount_deducted) || 0;
-      
+
       return acc;
     }, {});
 
-    // Prepare report for each date
     const reportData = Object.values(groupedSessions).map((session) => {
       const avgListeningTime = session.totalUsers
         ? (session.listeningTime / session.totalUsers).toFixed(2)
@@ -1092,5 +1089,5 @@ module.exports = {
   approvedStory,
   setAvailabilityToggle,
   storyList,
-  sessionRecords
+  sessionRecords,
 };
