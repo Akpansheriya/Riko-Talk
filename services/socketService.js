@@ -4,6 +4,7 @@ const { recentUsersList } = require("../controllers/auth/auth");
 const Database = require("../connections/connection");
 const Wallet = Database.wallet;
 const Session = Database.session;
+const Auth = Database.user;
 let io;
 const activeUsers = {};
 
@@ -239,7 +240,7 @@ const initSocket = (server) => {
                 listenerId: listenerId,
                 state: "rejected",
                 processBy: rejectedBy === "listener" ? listenerId : userId,
-                time:new Date(),
+                time: new Date(),
                 type: type,
               });
 
@@ -249,7 +250,7 @@ const initSocket = (server) => {
                 state: "rejected",
                 processBy: rejectedBy === "listener" ? listenerId : userId,
                 type: type,
-                time:new Date(),
+                time: new Date(),
               });
             }
           } else {
@@ -288,16 +289,18 @@ const initSocket = (server) => {
                   activeUsers[userId].status = "available";
                 }
               );
-const sessionData = await Session.findOne({where:{id:sessionId}})
-console.log("sessionData",sessionData)
+              const sessionData = await Session.findOne({
+                where: { id: sessionId },
+              });
+              console.log("sessionData", sessionData);
               // Notify both user and listener that the session has ended
               io.to(userSocket).emit("sessionEnded", {
                 userId: userId,
                 listenerId: listenerId,
                 sessionId: sessionId,
                 type: type,
-                start:sessionData.start_time,
-                end:sessionData.end_time
+                start: sessionData.start_time,
+                end: sessionData.end_time,
               });
 
               io.to(listenerSocket).emit("sessionEnded", {
@@ -305,8 +308,8 @@ console.log("sessionData",sessionData)
                 listenerId: listenerId,
                 sessionId: sessionId,
                 type: type,
-                start:sessionData.start_time,
-                end:sessionData.end_time
+                start: sessionData.start_time,
+                end: sessionData.end_time,
               });
             }
           } else {
@@ -343,11 +346,40 @@ console.log("sessionData",sessionData)
       });
 
       // Handle disconnect
-      socket.on("disconnect", () => {
+      socket.on("disconnect", async () => {
         console.log(`Client disconnected: ${socket.id}`);
+
         for (const userId in activeUsers) {
+          console.log("user",userId)
           if (activeUsers[userId].socketId === socket.id) {
             console.log(`User ${userId} disconnected.`);
+
+            try {
+              const user = await Auth.findOne({
+                where: { id: userId, role: "listener" },
+              });
+
+              if (user && user.is_audio_call_option === true || user.is_chat_option === true || user.is_video_call_option === true) {
+                await Auth.update(
+                  {
+                    is_video_call_option: false,
+                    is_audio_call_option: false,
+                    is_chat_option: false,
+                  },
+                  { where: { id: userId, role: "listener" } }
+                );
+
+                console.log(`Listener ${userId}'s availability set to false.`);
+              }else {
+                console.log(`Listener ${userId}'s disconnected`);
+              }
+            } catch (error) {
+              console.error(
+                "Error updating listener availability status:",
+                error
+              );
+            }
+
             delete activeUsers[userId];
             break;
           }
