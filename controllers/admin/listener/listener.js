@@ -1011,6 +1011,72 @@ const storyList = async (req, res) => {
   }
 };
 
+const sessionRecords = async (req, res) => {
+  try {
+    const listenerId = req.params.listenerId;
+
+    // Fetch all sessions for the given listener ID
+    const sessions = await Session.findAll({
+      where: {
+        listener_id: listenerId,
+      },
+    });
+
+    if (!sessions || sessions.length === 0) {
+      return res.status(200).send({
+        message: "No session records found",
+        data: [],
+      });
+    }
+
+    // Group sessions by date
+    const groupedSessions = sessions.reduce((acc, session) => {
+      const dateKey = new Date(session.createdAt).toLocaleDateString("en-GB"); // Format date to dd/mm/yyyy
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = {
+          date: dateKey,
+          totalUsers: 0,
+          listeningTime: 0,
+          totalEarnings: 0,
+        };
+      }
+      
+      // Update daily totals
+      acc[dateKey].totalUsers += 1;
+      acc[dateKey].listeningTime += session.total_duration || 0; // Use total_duration if provided
+      acc[dateKey].totalEarnings += parseFloat(session.amount_deducted) || 0;
+      
+      return acc;
+    }, {});
+
+    // Prepare report for each date
+    const reportData = Object.values(groupedSessions).map((session) => {
+      const avgListeningTime = session.totalUsers
+        ? (session.listeningTime / session.totalUsers).toFixed(2)
+        : 0;
+
+      return {
+        dailyReport: `Daily Report: ${session.date}`,
+        totalUsers: session.totalUsers,
+        listeningTime: `${session.listeningTime} Min`,
+        avgListeningTime: `${avgListeningTime} Min`,
+        earning: `₹ ${session.totalEarnings.toFixed(2)}`,
+      };
+    });
+
+    res.status(200).send({
+      message: "daily session reports",
+      reports: reportData,
+    });
+  } catch (error) {
+    console.error("Error fetching session records:", error);
+    return res.status(500).json({
+      message: "Error fetching session records",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -1026,4 +1092,5 @@ module.exports = {
   approvedStory,
   setAvailabilityToggle,
   storyList,
+  sessionRecords
 };
