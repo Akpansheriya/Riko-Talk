@@ -50,142 +50,154 @@ const initSocket = (server) => {
       });
 
       // Handle chat request
-      socket.on("chat-request", async ({ userId, listenerId, type }) => {
-        console.log("Chat Request:", { userId, listenerId });
+      socket.on(
+        "chat-request",
+        async ({ userId, listenerId, type, requestedBy }) => {
+          console.log("Chat Request:", { userId, listenerId });
 
-        const listener = activeUsers[listenerId];
-        const user = activeUsers[userId];
-        console.log("User:", user);
-        console.log("Listener:", listener);
-        console.log("Active Users:", activeUsers);
+          const listener = activeUsers[listenerId];
+          const user = activeUsers[userId];
+          console.log("User:", user);
+          console.log("Listener:", listener);
+          console.log("Active Users:", activeUsers);
 
-        try {
-          // Fetch user's wallet balance
-          const userWallet = await Wallet.findOne({
-            where: { user_id: userId },
-          });
-
-          // Check if balance is sufficient
-          if (!userWallet || userWallet.balance < 50) {
-            logAndEmit(socket, "error", {
-              message:
-                "Insufficient balance. Please recharge your wallet to proceed.",
+          try {
+            // Fetch user's wallet balance
+            const userWallet = await Wallet.findOne({
+              where: { user_id: userId },
             });
-            return;
-          }
 
-          // If both user and listener are available, proceed
-          if (
-            listener &&
-            listener.status === "available" &&
-            user &&
-            user.status === "available"
-          ) {
-            // Set both user and listener status to "requested"
-            activeUsers[listenerId].status = "requested";
-            activeUsers[userId].status = "requested";
-
-            // Emit to the listener
-            if (listener.socketId) {
-              io.to(listener.socketId).emit("receiveChatRequest", {
-                userId: userId,
-                listenerId: listenerId,
-                state: "requested",
-                requestBy: userId,
-                type: type,
+            // Check if balance is sufficient
+            if (!userWallet || userWallet.balance < 50) {
+              logAndEmit(socket, "error", {
+                message:
+                  "Insufficient balance. Please recharge your wallet to proceed.",
               });
+              return;
             }
 
-            // Emit to the user who made the request
-            if (user?.socketId) {
-              io.to(user.socketId).emit("receiveChatRequest", {
-                userId: userId,
-                listenerId: listenerId,
-                state: "requested",
-                requestBy: userId,
-                type: type,
+            // If both user and listener are available, proceed
+            if (
+              listener &&
+              listener.status === "available" &&
+              user &&
+              user.status === "available"
+            ) {
+              // Set both user and listener status to "requested"
+              activeUsers[listenerId].status = "requested";
+              activeUsers[userId].status = "requested";
+              console.log(
+                "-------------",
+                requestedBy === "listener" ? listenerId : userId
+              );
+              // Emit to the listener
+              if (listener.socketId) {
+                io.to(listener.socketId).emit("receiveChatRequest", {
+                  userId: userId,
+                  listenerId: listenerId,
+                  state: "requested",
+                  requestBy: requestedBy === "listener" ? listenerId : userId,
+                  type: type,
+                });
+              }
+
+              // Emit to the user who made the request
+              if (user?.socketId) {
+                io.to(user.socketId).emit("receiveChatRequest", {
+                  userId: userId,
+                  listenerId: listenerId,
+                  state: "requested",
+                  requestBy: requestedBy === "listener" ? listenerId : userId,
+                  type: type,
+                });
+              }
+            } else {
+              logAndEmit(socket, "error", {
+                message: "Listener unavailable or in a chat",
               });
+            }
+          } catch (error) {
+            console.error("Error checking wallet balance:", error);
+            logAndEmit(socket, "error", {
+              message: "Unable to process request. Please try again later.",
+            });
+          }
+        }
+      );
+
+      // Handle accept request
+      socket.on(
+        "accept-request",
+        async ({ userId, listenerId, type, acceptedBy }) => {
+          console.log(`Accept Request from ${userId} to ${listenerId}`);
+
+          const userSocket = activeUsers[userId]?.socketId;
+          const listenerSocket = activeUsers[listenerId]?.socketId;
+          console.log("userSocket", userSocket);
+          console.log("listenerSocket", listenerSocket);
+          console.log("active-users", activeUsers);
+          if (userSocket && listenerSocket) {
+            activeUsers[listenerId].status = "in_chat";
+            activeUsers[userId].status = "in_chat";
+            console.log("active-users", activeUsers);
+            io.to(userSocket).emit("requestAccepted", {
+              userId: userId,
+              listenerId: listenerId,
+              state: "accepted",
+              type: type,
+              acceptedBy: acceptedBy === "listener" ? listenerId : userId,
+            });
+
+            io.to(listenerSocket).emit("requestAccepted", {
+              userId: userId,
+              listenerId: listenerId,
+              state: "accepted",
+              type: type,
+              acceptedBy: acceptedBy === "listener" ? listenerId : userId,
+            });
+
+            try {
+              const {
+                startSessionSocket,
+              } = require("../controllers/user/session/session");
+              const { roomID, token, sessionId, initialDuration } =
+                await startSessionSocket({
+                  user_id: userId,
+                  listener_id: listenerId,
+                  type: type,
+                });
+              console.log(
+                "-------------",
+                acceptedBy === "listener" ? listenerId : userId
+              );
+              // Emit session start details to both user and listener, including `acceptedBy`
+              io.to(userSocket).emit("sessionStarted", {
+                roomID,
+                token,
+                sessionId,
+                initialDuration,
+                type,
+                acceptedBy: acceptedBy === "listener" ? listenerId : userId,
+              });
+
+              io.to(listenerSocket).emit("sessionStarted", {
+                roomID,
+                token,
+                sessionId,
+                initialDuration,
+                type,
+                acceptedBy: acceptedBy === "listener" ? listenerId : userId,
+              });
+            } catch (error) {
+              logAndEmit(socket, "error", { message: error.message });
             }
           } else {
             logAndEmit(socket, "error", {
-              message: "Listener unavailable or in a chat",
+              message: "User or listener socket not connected",
             });
           }
-        } catch (error) {
-          console.error("Error checking wallet balance:", error);
-          logAndEmit(socket, "error", {
-            message: "Unable to process request. Please try again later.",
-          });
         }
-      });
-
-      // Handle accept request
-      socket.on("accept-request", async ({ userId, listenerId, type }) => {
-        console.log(`Accept Request from ${userId} to ${listenerId}`);
-
-        const userSocket = activeUsers[userId]?.socketId;
-        const listenerSocket = activeUsers[listenerId]?.socketId;
-        console.log("userSocket", userSocket);
-        console.log("listenerSocket", listenerSocket);
-        console.log("active-users", activeUsers);
-        if (userSocket && listenerSocket) {
-          activeUsers[listenerId].status = "in_chat";
-          activeUsers[userId].status = "in_chat";
-          console.log("active-users", activeUsers);
-          io.to(userSocket).emit("requestAccepted", {
-            userId: userId,
-            listenerId: listenerId,
-            state: "accepted",
-            type: type,
-            acceptedBy: listenerId,
-          });
-
-          io.to(listenerSocket).emit("requestAccepted", {
-            userId: userId,
-            listenerId: listenerId,
-            state: "accepted",
-            type: type,
-            acceptedBy: listenerId,
-          });
-
-          try {
-            const {
-              startSessionSocket,
-            } = require("../controllers/user/session/session");
-            const { roomID, token, sessionId, initialDuration } =
-              await startSessionSocket({
-                user_id: userId,
-                listener_id: listenerId,
-                type: type,
-              });
-
-            // Emit session start details to both user and listener, including `acceptedBy`
-            io.to(userSocket).emit("sessionStarted", {
-              roomID,
-              token,
-              sessionId,
-              initialDuration,
-              type,
-              acceptedBy: listenerId,
-            });
-
-            io.to(listenerSocket).emit("sessionStarted", {
-              roomID,
-              token,
-              sessionId,
-              initialDuration,
-              type,
-              acceptedBy: listenerId,
-            });
-          } catch (error) {
-            logAndEmit(socket, "error", { message: error.message });
-          }
-        } else {
-          logAndEmit(socket, "error", {
-            message: "User or listener socket not connected",
-          });
-        }
-      });
+      );
 
       // Handle reject request
       socket.on(
@@ -235,6 +247,10 @@ const initSocket = (server) => {
               // Update the listener's status to available
 
               // Notify both user and listener about the rejection
+              console.log(
+                "-------------",
+                rejectedBy === "listener" ? listenerId : userId
+              );
               io.to(userSocket).emit("requestRejected", {
                 userId: userId,
                 listenerId: listenerId,
@@ -293,12 +309,17 @@ const initSocket = (server) => {
                 where: { id: sessionId },
               });
               console.log("sessionData", sessionData);
-              // Notify both user and listener that the session has ended
+              console.log(
+                "-------------",
+                rejectedBy === "listener" ? listenerId : userId
+              );
+
               io.to(userSocket).emit("sessionEnded", {
                 userId: userId,
                 listenerId: listenerId,
                 sessionId: sessionId,
                 type: type,
+                sessionEndedBy: rejectedBy === "listener" ? listenerId : userId,
                 start: sessionData.start_time,
                 end: sessionData.end_time,
               });
@@ -308,6 +329,7 @@ const initSocket = (server) => {
                 listenerId: listenerId,
                 sessionId: sessionId,
                 type: type,
+                sessionEndedBy: rejectedBy === "listener" ? listenerId : userId,
                 start: sessionData.start_time,
                 end: sessionData.end_time,
               });
@@ -350,7 +372,7 @@ const initSocket = (server) => {
         console.log(`Client disconnected: ${socket.id}`);
 
         for (const userId in activeUsers) {
-          console.log("user",userId)
+          console.log("user", userId);
           if (activeUsers[userId].socketId === socket.id) {
             console.log(`User ${userId} disconnected.`);
 
@@ -359,7 +381,11 @@ const initSocket = (server) => {
                 where: { id: userId, role: "listener" },
               });
 
-              if (user && user.is_audio_call_option === true || user.is_chat_option === true || user.is_video_call_option === true) {
+              if (
+                (user && user.is_audio_call_option === true) ||
+                user.is_chat_option === true ||
+                user.is_video_call_option === true
+              ) {
                 await Auth.update(
                   {
                     is_video_call_option: false,
@@ -370,7 +396,7 @@ const initSocket = (server) => {
                 );
 
                 console.log(`Listener ${userId}'s availability set to false.`);
-              }else {
+              } else {
                 console.log(`Listener ${userId}'s disconnected`);
               }
             } catch (error) {

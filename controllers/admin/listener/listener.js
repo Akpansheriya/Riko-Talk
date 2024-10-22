@@ -1014,8 +1014,6 @@ const storyList = async (req, res) => {
 const sessionRecords = async (req, res) => {
   try {
     const listenerId = req.params.listenerId;
-
-    // Fetch all sessions for the given listener ID
     const sessions = await Session.findAll({
       where: {
         listener_id: listenerId,
@@ -1054,9 +1052,9 @@ const sessionRecords = async (req, res) => {
         : 0;
 
       return {
-        dailyReport: `Daily Report: ${session.date}`,
+        dailyReport: session.date,
         totalUsers: session.totalUsers,
-        listeningTime: `${session.listeningTime} Min`,
+        listeningTime: `${session.listeningTime.toFixed(2)} Min`,
         avgListeningTime: `${avgListeningTime} Min`,
         earning: `₹ ${session.totalEarnings.toFixed(2)}`,
       };
@@ -1074,6 +1072,7 @@ const sessionRecords = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   listenerRequestList,
   listenerFormLink,
