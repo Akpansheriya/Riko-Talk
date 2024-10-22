@@ -166,7 +166,15 @@ const startSessionSocket = async ({ user_id, listener_id, type }) => {
         const wallet = await Wallet.findOne({ where: { user_id: session.user_id } });
 
         if (!wallet || wallet.balance < deductionPerSecond) {
-          await endSession(session.id, "Insufficient wallet balance");
+          // Send low balance event and end the session
+          socketService.startSessionSocket({
+            event: "lowBalance",
+            message: "Insufficient wallet balance",
+            userId: user.id,
+            listenerId: listener.id,
+          });
+
+          await endSession({sessionId:session.id, reason:"Insufficient wallet balance"});
           clearInterval(interval);
           sessionIntervals.delete(session.id);
         } else {
