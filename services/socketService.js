@@ -35,9 +35,11 @@ const initSocket = (server) => {
       recentUsersList(socket);
       socket.on("endSessionReason", (data) => {
         console.log("Event: endSessionReason", data);
-
+      
         const userSocket = activeUsers[data.userId]?.socketId;
-
+        const listenerSocket = activeUsers[data.listenerId]?.socketId;
+      
+        // Emit the sessionEnded event to the user
         if (userSocket) {
           io.to(userSocket).emit("sessionEnded", {
             message: data.message,
@@ -50,7 +52,10 @@ const initSocket = (server) => {
         } else {
           console.log(`User with ID ${data.userId} is not connected.`);
         }
+      
+      
       });
+      
 
       socket.on("user-login", (data) => {
         const userId = data.userId;

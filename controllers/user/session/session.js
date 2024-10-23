@@ -174,6 +174,7 @@ const startSessionSocket = async ({
           });
           const userSocket = activeUsers[user.id]?.socketId;
           const listenerSocket = activeUsers[listener.id]?.socketId;
+          
           const sessionEndPayload = {
             userId: user.id,
             listenerId: listener.id,
@@ -184,6 +185,8 @@ const startSessionSocket = async ({
             start: sessionData.start_time,
             end: new Date(),
           };
+        
+          // Emit endSessionReason event to the user
           if (userSocket) {
             io.to(userSocket).emit("endSessionReason", {
               message: "Insufficient wallet balance",
@@ -194,17 +197,36 @@ const startSessionSocket = async ({
               roomID: roomID,
             });
           }
-          if (userSocket)
+        
+          // Emit sessionEnded event to both user and listener
+          if (userSocket) {
             io.to(userSocket).emit("sessionEnded", sessionEndPayload);
-          if (listenerSocket)
+          }
+          if (listenerSocket) {
             io.to(listenerSocket).emit("sessionEnded", sessionEndPayload);
+          }
+        
+          // Update the status of active users to "available"
+          if (activeUsers[user.id]) {
+            activeUsers[user.id].status = "available";
+            console.log(`User ID ${user.id} status set to available.`);
+          }
+        
+          if (activeUsers[listener.id]) {
+            activeUsers[listener.id].status = "available";
+            console.log(`Listener ID ${listener.id} status set to available.`);
+          }
+        console.log("active-users-----",activeUsers)
+          // End the session in the database
           await endSession({
             sessionId: session.id,
             reason: "Insufficient wallet balance",
           });
+        
+          // Clear the interval and remove the session from active tracking
           clearInterval(interval);
           sessionIntervals.delete(session.id);
-        } else {
+        }else {
           wallet.balance -= deductionPerSecond;
           session.amount_deducted += deductionPerSecond;
           elapsedTimeInSeconds++;
