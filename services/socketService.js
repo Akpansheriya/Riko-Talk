@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-const { listenersList } = require("../controllers/admin/listener/listener");
+const { listenersList, storyList } = require("../controllers/admin/listener/listener");
 const { recentUsersList } = require("../controllers/auth/auth");
 const Database = require("../connections/connection");
 const Wallet = Database.wallet;
@@ -31,7 +31,12 @@ const initSocket = (server) => {
           listenersList(socket, { page, pageSize, gender, service, topic });
         }
       );
-
+      socket.on(
+        "storyList",
+        ({ page, pageSize}) => {
+          storyList(socket, { page, pageSize });
+        }
+      );
       recentUsersList(socket);
       socket.on("endSessionReason", (data) => {
         console.log("Event: endSessionReason", data);

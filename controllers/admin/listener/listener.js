@@ -964,25 +964,23 @@ const setAvailabilityToggle = async (req, res) => {
     });
   }
 };
-const storyList = async (req, res) => {
+const storyList = async (socket, { page, pageSize}) => {
   try {
-    const { page = 1, pageSize = 10 } = req.query;
     const offset = (page - 1) * pageSize;
 
-    const { count: totalRecords, rows: listenerStories } =
-      await Database.story.findAndCountAll({
-        where: { is_approved: true },
-        include: [
-          {
-            model: Database.listenerProfile,
-            as: "listenerStoryData",
-            required: false,
-            attributes: ["nick_name", "display_name", "display_image"],
-          },
-        ],
-        limit: parseInt(pageSize),
-        offset: parseInt(offset),
-      });
+    const { count: totalRecords, rows: listenerStories } = await Database.story.findAndCountAll({
+      where: { is_approved: true },
+      include: [
+        {
+          model: Database.listenerProfile,
+          as: "listenerStoryData",
+          required: false,
+          attributes: ["nick_name", "display_name", "display_image"],
+        },
+      ],
+      limit: parseInt(pageSize),
+      offset: parseInt(offset),
+    });
 
     const flattenedStories = listenerStories.map((story) => {
       const { listenerStoryData, ...storyData } = story.toJSON();
@@ -994,7 +992,7 @@ const storyList = async (req, res) => {
       };
     });
 
-    return res.status(200).json({
+    socket.emit("storyList", {
       message: "Stories fetched successfully",
       totalRecords,
       totalPages: Math.ceil(totalRecords / pageSize),
@@ -1004,12 +1002,13 @@ const storyList = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching stories:", error);
-    return res.status(500).json({
+    socket.emit("error", {
       message: "Error fetching stories",
       error: error.message,
     });
   }
 };
+
 
 const sessionRecords = async (req, res) => {
   try {
