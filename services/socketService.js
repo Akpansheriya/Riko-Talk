@@ -25,7 +25,6 @@ const initSocket = (server) => {
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
 
-      // Handle listeners list request
       socket.on(
         "listenersList",
         ({ page, pageSize, gender, service, topic }) => {
@@ -33,10 +32,26 @@ const initSocket = (server) => {
         }
       );
 
-      // Handle recent users list request
       recentUsersList(socket);
+      socket.on("endSessionReason", (data) => {
+        console.log("Event: endSessionReason", data);
 
-      // Handle user login
+        const userSocket = activeUsers[data.userId]?.socketId;
+
+        if (userSocket) {
+          io.to(userSocket).emit("sessionEnded", {
+            message: data.message,
+            userId: data.userId,
+            listenerId: data.listenerId,
+            sessionId: data.sessionId,
+            reason: data.message,
+            roomID: data.roomID,
+          });
+        } else {
+          console.log(`User with ID ${data.userId} is not connected.`);
+        }
+      });
+
       socket.on("user-login", (data) => {
         const userId = data.userId;
         if (typeof userId !== "string") {
@@ -62,12 +77,10 @@ const initSocket = (server) => {
           console.log("Active Users:", activeUsers);
 
           try {
-            // Fetch user's wallet balance
             const userWallet = await Wallet.findOne({
               where: { user_id: userId },
             });
 
-            // Check if balance is sufficient
             if (!userWallet || userWallet.balance < 50) {
               logAndEmit(socket, "error", {
                 message:
@@ -76,21 +89,19 @@ const initSocket = (server) => {
               return;
             }
 
-            // If both user and listener are available, proceed
             if (
               listener &&
               listener.status === "available" &&
               user &&
               user.status === "available"
             ) {
-              // Set both user and listener status to "requested"
               activeUsers[listenerId].status = "requested";
               activeUsers[userId].status = "requested";
               console.log(
                 "-------------",
                 requestedBy === "listener" ? listenerId : userId
               );
-              // Emit to the listener
+
               if (listener.socketId) {
                 io.to(listener.socketId).emit("receiveChatRequest", {
                   userId: userId,
@@ -101,7 +112,6 @@ const initSocket = (server) => {
                 });
               }
 
-              // Emit to the user who made the request
               if (user?.socketId) {
                 io.to(user.socketId).emit("receiveChatRequest", {
                   userId: userId,
@@ -125,7 +135,6 @@ const initSocket = (server) => {
         }
       );
 
-      // Handle accept request
       socket.on(
         "accept-request",
         async ({ userId, listenerId, type, acceptedBy }) => {
@@ -165,12 +174,14 @@ const initSocket = (server) => {
                   user_id: userId,
                   listener_id: listenerId,
                   type: type,
+                  io,
+                  activeUsers,
                 });
               console.log(
                 "-------------",
                 acceptedBy === "listener" ? listenerId : userId
               );
-              // Emit session start details to both user and listener, including `acceptedBy`
+
               io.to(userSocket).emit("sessionStarted", {
                 roomID,
                 token,
@@ -199,7 +210,6 @@ const initSocket = (server) => {
         }
       );
 
-      // Handle reject request
       socket.on(
         "reject-request",
         async ({ userId, listenerId, rejectedBy, type }) => {
@@ -318,6 +328,7 @@ const initSocket = (server) => {
                 userId: userId,
                 listenerId: listenerId,
                 sessionId: sessionId,
+                reason: reason,
                 type: type,
                 sessionEndedBy: rejectedBy === "listener" ? listenerId : userId,
                 start: sessionData.start_time,
@@ -329,6 +340,7 @@ const initSocket = (server) => {
                 listenerId: listenerId,
                 sessionId: sessionId,
                 type: type,
+                reason: reason,
                 sessionEndedBy: rejectedBy === "listener" ? listenerId : userId,
                 start: sessionData.start_time,
                 end: sessionData.end_time,
