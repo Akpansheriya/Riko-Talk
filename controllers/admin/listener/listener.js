@@ -5,6 +5,7 @@ const Auth = Database.user;
 const { Op } = require("sequelize");
 const Questions = Database.questions;
 const Session = Database.session;
+const Leaves = Database.leaves;
 const Story = Database.story;
 const ListenerProfile = Database.listenerProfile;
 const listenerRequestList = async (req, res) => {
@@ -1008,6 +1009,110 @@ const storyList = async (socket, { page, pageSize}) => {
     });
   }
 };
+const leaveRecords = async (req, res) => {
+  try {
+    const listenerId = req.params.listenerId;
+
+    // Fetch all sessions for the listener
+    const sessions = await Session.findAll({
+      where: {
+        listener_id: listenerId,
+      },
+    });
+
+    // Fetch leave data for the listener
+    const LeavesData = await Leaves.findAll({ where: { listenerId: listenerId } });
+
+    if (!sessions || sessions.length === 0) {
+      return res.status(200).send({
+        message: "No session records found",
+        data: [],
+      });
+    }
+
+    // Group sessions by date and calculate totals
+    const groupedSessions = sessions.reduce((acc, session) => {
+      const dateKey = new Date(session.createdAt).toLocaleDateString("en-GB");
+
+      if (!acc[dateKey]) {
+        acc[dateKey] = {
+          date: dateKey,
+          totalUsers: 0,
+          listeningTime: 0,
+          totalEarnings: 0,
+          missedSessions: 0,
+        };
+      }
+
+      acc[dateKey].totalUsers += 1;
+      acc[dateKey].listeningTime += session.total_duration || 0;
+      acc[dateKey].totalEarnings += parseFloat(session.amount_deducted) || 0;
+
+      // Assuming there is a flag or logic to determine if a session is missed
+      if (session.status === "missed") {
+        acc[dateKey].missedSessions += 1;
+      }
+
+      return acc;
+    }, {});
+
+    // Track leave days and calculate reports
+    let leaveCount = 0;
+    const maxAllowedLeaves = 6;
+    const leaveChargePerDay = 100;
+    const penaltyCharge = 150;
+    let penalty2 = 0;
+
+    const reportData = Object.values(groupedSessions).map((session) => {
+      const avgListeningTime = session.totalUsers
+        ? (session.listeningTime / session.totalUsers).toFixed(2)
+        : 0;
+
+      // If daily listening time is less than 30 minutes, count as leave
+      if (session.listeningTime < 30) {
+        leaveCount++;
+      }
+
+      // Apply penalty if there are 3 or more missed sessions
+      if (session.missedSessions >= 3) {
+        penalty2 += penaltyCharge;
+      }
+
+      return {
+        dailyReport: session.date,
+        totalUsers: session.totalUsers,
+        listeningTime: `${session.listeningTime.toFixed(2)} Min`,
+        avgListeningTime: `${avgListeningTime} Min`,
+        earning: `₹ ${session.totalEarnings.toFixed(2)}`,
+        missedSessions: session.missedSessions,
+      };
+    });
+
+    // Calculate extra charges if leave count exceeds allowed leaves
+    let extraCharges = 0;
+    if (leaveCount > maxAllowedLeaves) {
+      extraCharges = (leaveCount - maxAllowedLeaves) * leaveChargePerDay;
+    }
+
+    res.status(200).send({
+      message: "Daily session reports",
+      leavesCount: leaveCount,
+      allowedLeaves: maxAllowedLeaves,
+      remainingLeaves: maxAllowedLeaves > leaveCount ? maxAllowedLeaves - leaveCount : 0,
+      extraLeaves: leaveCount > maxAllowedLeaves ? leaveCount - maxAllowedLeaves : 0,
+      extraCharges: `₹ ${extraCharges}`,
+      penalty2: `₹ ${penalty2}`, // Include the penalty for missed sessions
+    });
+  } catch (error) {
+    console.error("Error fetching session records:", error);
+    return res.status(500).json({
+      message: "Error fetching session records",
+      error: error.message,
+    });
+  }
+};
+
+
 
 
 const sessionRecords = async (req, res) => {
@@ -1088,4 +1193,5 @@ module.exports = {
   setAvailabilityToggle,
   storyList,
   sessionRecords,
+  leaveRecords
 };

@@ -64,4 +64,5 @@ listenerControllerRouter.get(
   listenerController.storyList
 );
 listenerControllerRouter.get("/daily-session-records/:listenerId", listenerController.sessionRecords)
+listenerControllerRouter.get("/leaves-record/:listenerId", listenerController.leaveRecords)
 module.exports = listenerControllerRouter;

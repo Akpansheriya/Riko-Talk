@@ -99,6 +99,10 @@ Database.notification = require("../models/user/notification/notification")(
   sequelize,
   DataTypes
 );
+Database.leaves = require("../models/auth/leaves/leaves")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {

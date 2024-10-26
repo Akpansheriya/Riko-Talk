@@ -1,10 +1,14 @@
 const { Server } = require("socket.io");
-const { listenersList, storyList } = require("../controllers/admin/listener/listener");
+const {
+  listenersList,
+  storyList,
+} = require("../controllers/admin/listener/listener");
 const { recentUsersList } = require("../controllers/auth/auth");
 const Database = require("../connections/connection");
 const Wallet = Database.wallet;
 const Session = Database.session;
 const Auth = Database.user;
+const Leaves = Database.leaves;
 let io;
 const activeUsers = {};
 
@@ -31,19 +35,16 @@ const initSocket = (server) => {
           listenersList(socket, { page, pageSize, gender, service, topic });
         }
       );
-      socket.on(
-        "storyList",
-        ({ page, pageSize}) => {
-          storyList(socket, { page, pageSize });
-        }
-      );
+      socket.on("storyList", ({ page, pageSize }) => {
+        storyList(socket, { page, pageSize });
+      });
       recentUsersList(socket);
       socket.on("endSessionReason", (data) => {
         console.log("Event: endSessionReason", data);
-      
+
         const userSocket = activeUsers[data.userId]?.socketId;
         const listenerSocket = activeUsers[data.listenerId]?.socketId;
-      
+
         // Emit the sessionEnded event to the user
         if (userSocket) {
           io.to(userSocket).emit("sessionEnded", {
@@ -57,10 +58,7 @@ const initSocket = (server) => {
         } else {
           console.log(`User with ID ${data.userId} is not connected.`);
         }
-      
-      
       });
-      
 
       socket.on("user-login", (data) => {
         const userId = data.userId;
@@ -228,7 +226,7 @@ const initSocket = (server) => {
           const userSocket = activeUsers[userId]?.socketId;
           const listenerSocket = activeUsers[listenerId]?.socketId;
           console.log("userSocket", userSocket);
-          console.log("litenerSocket", listenerSocket);
+          console.log("listenerSocket", listenerSocket);
           if (userSocket && listenerSocket) {
             console.log(
               "------------------in condition------------------------"
@@ -240,33 +238,23 @@ const initSocket = (server) => {
               console.log("----------------endsession------------------------");
               activeUsers[listenerId].status = "available";
               activeUsers[userId].status = "available";
-              //   const {
-              //     endSession,
-              //   } = require("../controllers/user/session/session");
-              //   await endSession({sessionId:sessionId,reason:reason}).then((result) => {
-              //     activeUsers[listenerId].status = "available";
-              //     activeUsers[userId].status = "available";
-              //   })
-
-              //   // Notify both user and listener that the session has ended
-              //   io.to(userSocket).emit("sessionEnded", {
-              //     userId: userId,
-              //     listenerId: listenerId,
-              //     sessionId: sessionId,
-              //     type: type,
-              //   });
-
-              //   io.to(listenerSocket).emit("sessionEnded", {
-              //     userId: userId,
-              //     listenerId: listenerId,
-              //     sessionId: sessionId,
-              //     type: type,
-              //   });
-              // }
-
-              // Update the listener's status to available
-
-              // Notify both user and listener about the rejection
+      
+             
+              if (rejectedBy === "listener") {
+                try {
+                 
+                  await Leaves.create({
+                    userId: userId,
+                    listenerId: listenerId,
+                    rejectedAt: new Date(), 
+                  });
+                  console.log("Rejection stored successfully.");
+                } catch (error) {
+                  console.error("Error storing rejection:", error);
+                }
+              }
+      
+             
               console.log(
                 "-------------",
                 rejectedBy === "listener" ? listenerId : userId
@@ -279,7 +267,7 @@ const initSocket = (server) => {
                 time: new Date(),
                 type: type,
               });
-
+      
               io.to(listenerSocket).emit("requestRejected", {
                 userId: userId,
                 listenerId: listenerId,
@@ -296,6 +284,7 @@ const initSocket = (server) => {
           }
         }
       );
+      
 
       socket.on(
         "session-end",
