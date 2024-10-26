@@ -7,6 +7,7 @@ const Questions = Database.questions;
 const Session = Database.session;
 const Leaves = Database.leaves;
 const Story = Database.story;
+const {initSocket} = require("../../../services/socketService")
 const ListenerProfile = Database.listenerProfile;
 const listenerRequestList = async (req, res) => {
   try {
@@ -892,7 +893,7 @@ const story = async (req, res) => {
     });
   }
 };
-const approvedStory = async (req, res) => {
+const approvedStory = async (req, res,socket) => {
   try {
     const { listenerId } = req.body;
 
@@ -965,23 +966,24 @@ const setAvailabilityToggle = async (req, res) => {
     });
   }
 };
-const storyList = async (socket, { page, pageSize}) => {
+const storyList = async (socket, { page, pageSize }) => {
   try {
     const offset = (page - 1) * pageSize;
 
-    const { count: totalRecords, rows: listenerStories } = await Database.story.findAndCountAll({
-      where: { is_approved: true },
-      include: [
-        {
-          model: Database.listenerProfile,
-          as: "listenerStoryData",
-          required: false,
-          attributes: ["nick_name", "display_name", "display_image"],
-        },
-      ],
-      limit: parseInt(pageSize),
-      offset: parseInt(offset),
-    });
+    const { count: totalRecords, rows: listenerStories } =
+      await Database.story.findAndCountAll({
+        where: { is_approved: true },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerStoryData",
+            required: false,
+            attributes: ["nick_name", "display_name", "display_image"],
+          },
+        ],
+        limit: parseInt(pageSize),
+        offset: parseInt(offset),
+      });
 
     const flattenedStories = listenerStories.map((story) => {
       const { listenerStoryData, ...storyData } = story.toJSON();
@@ -1013,15 +1015,15 @@ const leaveRecords = async (req, res) => {
   try {
     const listenerId = req.params.listenerId;
 
-    // Fetch all sessions for the listener
     const sessions = await Session.findAll({
       where: {
         listener_id: listenerId,
       },
     });
 
-    // Fetch leave data for the listener
-    const LeavesData = await Leaves.findAll({ where: { listenerId: listenerId } });
+    const LeavesData = await Leaves.findAll({
+      where: { listenerId: listenerId },
+    });
 
     if (!sessions || sessions.length === 0) {
       return res.status(200).send({
@@ -1030,7 +1032,6 @@ const leaveRecords = async (req, res) => {
       });
     }
 
-    // Group sessions by date and calculate totals
     const groupedSessions = sessions.reduce((acc, session) => {
       const dateKey = new Date(session.createdAt).toLocaleDateString("en-GB");
 
@@ -1048,7 +1049,6 @@ const leaveRecords = async (req, res) => {
       acc[dateKey].listeningTime += session.total_duration || 0;
       acc[dateKey].totalEarnings += parseFloat(session.amount_deducted) || 0;
 
-      // Assuming there is a flag or logic to determine if a session is missed
       if (session.status === "missed") {
         acc[dateKey].missedSessions += 1;
       }
@@ -1056,7 +1056,6 @@ const leaveRecords = async (req, res) => {
       return acc;
     }, {});
 
-    // Track leave days and calculate reports
     let leaveCount = 0;
     const maxAllowedLeaves = 6;
     const leaveChargePerDay = 100;
@@ -1068,12 +1067,10 @@ const leaveRecords = async (req, res) => {
         ? (session.listeningTime / session.totalUsers).toFixed(2)
         : 0;
 
-      // If daily listening time is less than 30 minutes, count as leave
       if (session.listeningTime < 30) {
         leaveCount++;
       }
 
-      // Apply penalty if there are 3 or more missed sessions
       if (session.missedSessions >= 3) {
         penalty2 += penaltyCharge;
       }
@@ -1088,7 +1085,6 @@ const leaveRecords = async (req, res) => {
       };
     });
 
-    // Calculate extra charges if leave count exceeds allowed leaves
     let extraCharges = 0;
     if (leaveCount > maxAllowedLeaves) {
       extraCharges = (leaveCount - maxAllowedLeaves) * leaveChargePerDay;
@@ -1098,10 +1094,12 @@ const leaveRecords = async (req, res) => {
       message: "Daily session reports",
       leavesCount: leaveCount,
       allowedLeaves: maxAllowedLeaves,
-      remainingLeaves: maxAllowedLeaves > leaveCount ? maxAllowedLeaves - leaveCount : 0,
-      extraLeaves: leaveCount > maxAllowedLeaves ? leaveCount - maxAllowedLeaves : 0,
+      remainingLeaves:
+        maxAllowedLeaves > leaveCount ? maxAllowedLeaves - leaveCount : 0,
+      extraLeaves:
+        leaveCount > maxAllowedLeaves ? leaveCount - maxAllowedLeaves : 0,
       extraCharges: `₹ ${extraCharges}`,
-      penalty2: `₹ ${penalty2}`, // Include the penalty for missed sessions
+      penalty2: `₹ ${penalty2}`,
     });
   } catch (error) {
     console.error("Error fetching session records:", error);
@@ -1111,10 +1109,6 @@ const leaveRecords = async (req, res) => {
     });
   }
 };
-
-
-
-
 const sessionRecords = async (req, res) => {
   try {
     const listenerId = req.params.listenerId;
@@ -1127,7 +1121,7 @@ const sessionRecords = async (req, res) => {
     if (!sessions || sessions.length === 0) {
       return res.status(200).send({
         message: "No session records found",
-        data: [],
+        reports: [],
       });
     }
 
@@ -1193,5 +1187,5 @@ module.exports = {
   setAvailabilityToggle,
   storyList,
   sessionRecords,
-  leaveRecords
+  leaveRecords,
 };

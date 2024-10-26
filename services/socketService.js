@@ -9,6 +9,7 @@ const Wallet = Database.wallet;
 const Session = Database.session;
 const Auth = Database.user;
 const Leaves = Database.leaves;
+const { Op } = require("sequelize");
 let io;
 const activeUsers = {};
 
@@ -176,6 +177,7 @@ const initSocket = (server) => {
             try {
               const {
                 startSessionSocket,
+                endSession,
               } = require("../controllers/user/session/session");
               const { roomID, token, sessionId, initialDuration } =
                 await startSessionSocket({
@@ -238,23 +240,20 @@ const initSocket = (server) => {
               console.log("----------------endsession------------------------");
               activeUsers[listenerId].status = "available";
               activeUsers[userId].status = "available";
-      
-             
+
               if (rejectedBy === "listener") {
                 try {
-                 
                   await Leaves.create({
                     userId: userId,
                     listenerId: listenerId,
-                    rejectedAt: new Date(), 
+                    rejectedAt: new Date(),
                   });
                   console.log("Rejection stored successfully.");
                 } catch (error) {
                   console.error("Error storing rejection:", error);
                 }
               }
-      
-             
+
               console.log(
                 "-------------",
                 rejectedBy === "listener" ? listenerId : userId
@@ -267,7 +266,7 @@ const initSocket = (server) => {
                 time: new Date(),
                 type: type,
               });
-      
+
               io.to(listenerSocket).emit("requestRejected", {
                 userId: userId,
                 listenerId: listenerId,
@@ -284,7 +283,6 @@ const initSocket = (server) => {
           }
         }
       );
-      
 
       socket.on(
         "session-end",
@@ -379,11 +377,11 @@ const initSocket = (server) => {
       });
 
       // Handle disconnect
+
       socket.on("disconnect", async () => {
         console.log(`Client disconnected: ${socket.id}`);
 
         for (const userId in activeUsers) {
-          console.log("user", userId);
           if (activeUsers[userId].socketId === socket.id) {
             console.log(`User ${userId} disconnected.`);
 
@@ -392,10 +390,58 @@ const initSocket = (server) => {
                 where: { id: userId, role: "listener" },
               });
 
+              const activeSession = await Session.findOne({
+                where: {
+                  [Op.or]: [{ user_id: userId }, { listener_id: userId }],
+                  status: "active",
+                },
+              });
+
+              if (activeSession) {
+                const {
+                  user_id: sessionUserId,
+                  listener_id: sessionListenerId,
+                  id: sessionId,
+                } = activeSession;
+
+                if (activeUsers[sessionUserId])
+                  activeUsers[sessionUserId].status = "available";
+                if (activeUsers[sessionListenerId])
+                  activeUsers[sessionListenerId].status = "available";
+
+                const userSocket = activeUsers[sessionUserId]?.socketId;
+                const listenerSocket = activeUsers[sessionListenerId]?.socketId;
+
+                const sessionEndPayload = {
+                  userId: sessionUserId,
+                  listenerId: sessionListenerId,
+                  sessionId: sessionId,
+                  reason: "Socket disconnected",
+                  type: activeSession.type,
+                  sessionEndedBy: "system",
+                  start: activeSession.start_time,
+                  end: new Date(),
+                };
+
+                if (userSocket)
+                  io.to(userSocket).emit("sessionEnded", sessionEndPayload);
+                if (listenerSocket)
+                  io.to(listenerSocket).emit("sessionEnded", sessionEndPayload);
+
+                const {
+                  endSession,
+                } = require("../controllers/user/session/session");
+                await endSession({
+                  sessionId: sessionId,
+                  reason: "Socket disconnected",
+                });
+              }
+
               if (
-                (user && user.is_audio_call_option === true) ||
-                user.is_chat_option === true ||
-                user.is_video_call_option === true
+                user &&
+                (user.is_audio_call_option === true ||
+                  user.is_chat_option === true ||
+                  user.is_video_call_option === true)
               ) {
                 await Auth.update(
                   {
@@ -408,7 +454,7 @@ const initSocket = (server) => {
 
                 console.log(`Listener ${userId}'s availability set to false.`);
               } else {
-                console.log(`Listener ${userId}'s disconnected`);
+                console.log(`Listener ${userId} disconnected.`);
               }
             } catch (error) {
               console.error(
