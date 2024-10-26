@@ -27,10 +27,10 @@ listenerControllerRouter.post(
   "/listener-request-approval",
   listenerController.listenerRequestApproval
 );
-listenerControllerRouter.get(
-  "/listeners-list",
-  listenerController.listenersList
-);
+// listenerControllerRouter.get(
+//   "/listeners-list",
+//   listenerController.listenersList
+// );
 listenerControllerRouter.get(
   "/listener-profile/:id",
   listenerController.listenerProfile
@@ -59,10 +59,7 @@ listenerControllerRouter.post(
   "/set-availability",
   listenerController.setAvailabilityToggle
 );
-listenerControllerRouter.get(
-  "/stories",
-  listenerController.storyList
-);
+
 listenerControllerRouter.get("/daily-session-records/:listenerId", listenerController.sessionRecords)
 listenerControllerRouter.get("/leaves-record/:listenerId", listenerController.leaveRecords)
 module.exports = listenerControllerRouter;

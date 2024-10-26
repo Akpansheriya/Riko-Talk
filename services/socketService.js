@@ -1,7 +1,6 @@
 const { Server } = require("socket.io");
 const {
   listenersList,
-  storyList,
 } = require("../controllers/admin/listener/listener");
 const { recentUsersList } = require("../controllers/auth/auth");
 const Database = require("../connections/connection");
@@ -37,7 +36,7 @@ const initSocket = (server) => {
         }
       );
       socket.on("storyList", ({ page, pageSize }) => {
-        storyList(socket, { page, pageSize });
+        storyList(socket,{ page, pageSize });
       });
       recentUsersList(socket);
       socket.on("endSessionReason", (data) => {
@@ -483,10 +482,63 @@ const emitSessionData = (roomID, data) => {
 const endSessionSocket = (roomID, reason) => {
   io.to(roomID).emit("session_ended", { reason });
 };
+const getSocket = () => io;
+
+const storyList = async (socket, { page, pageSize }) => {
+  try {
+      const offset = (page - 1) * pageSize;
+
+      const { count: totalRecords, rows: listenerStories } =
+          await Database.story.findAndCountAll({
+              where: { is_approved: true },
+              include: [
+                  {
+                      model: Database.listenerProfile,
+                      as: "listenerStoryData",
+                      required: false,
+                      attributes: ["nick_name", "display_name", "display_image"],
+                  },
+              ],
+              limit: parseInt(pageSize),
+              offset: parseInt(offset),
+          });
+
+      const flattenedStories = listenerStories.map((story) => {
+          const { listenerStoryData, ...storyData } = story.toJSON();
+          return {
+              ...storyData,
+              nick_name: listenerStoryData?.nick_name || null,
+              display_name: listenerStoryData?.display_name || null,
+              display_image: listenerStoryData?.display_image || null,
+          };
+      });
+
+      socket.emit("storyList", {
+          message: "Stories fetched successfully",
+          totalRecords,
+          totalPages: Math.ceil(totalRecords / pageSize),
+          currentPage: parseInt(page),
+          pageSize: parseInt(pageSize),
+          StoriesList: flattenedStories,
+      });
+  } catch (error) {
+      console.error("Error fetching stories:", error);
+      socket.emit("error", {
+          message: "Error fetching stories",
+          error: error.message,
+      });
+  }
+};
+
+
+
+
 
 module.exports = {
   initSocket,
   startSessionSocket,
   emitSessionData,
   endSessionSocket,
+  getSocket,
+  storyList
 };

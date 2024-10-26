@@ -82,7 +82,7 @@ const storeListenerProfile = async (req, res) => {
       listenerId,
       display_name,
       gender,
-      age:parseInt(age),
+      age: parseInt(age),
       topic,
       service,
       about,
@@ -113,7 +113,6 @@ const storeListenerProfile = async (req, res) => {
     });
   }
 };
-
 const submitForm = async (req, res) => {
   try {
     const {
@@ -177,10 +176,8 @@ const submitForm = async (req, res) => {
   }
 };
 
-
 module.exports = {
   listenerRequest,
   submitForm,
   storeListenerProfile,
-  
 };
