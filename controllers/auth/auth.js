@@ -359,7 +359,7 @@ const ProfilesData = async (req, res) => {
 
   try {
     const Profiles = await Database.user.findOne({
-      where: { id: userId },
+      where: { id: userId }
     });
     if (Profiles.role === "listener") {
       const listenerProfile = await Database.user.findOne({
@@ -378,6 +378,15 @@ const ProfilesData = async (req, res) => {
             "isActivate",
             "listener_request_status",
             "deactivateDate",
+            "adhar_back",
+            "adhar_front",
+            "pancard",
+            "image",
+            "dob",
+            "about",
+            "topic",
+            "age",
+            "gender","call_availability_duration","nationality","service","otp_session_id","your_referal_code","state","fullName"
           ],
         },
         include: [
@@ -388,15 +397,15 @@ const ProfilesData = async (req, res) => {
           },
         ],
       });
-    
+
       if (!listenerProfile) {
         return res.status(404).json({
           message: "Listener profile not found",
         });
       }
-    
+
       const profileData = listenerProfile.toJSON();
-    
+
       if (
         profileData.listenerProfileData &&
         profileData.listenerProfileData.length > 0
@@ -404,7 +413,7 @@ const ProfilesData = async (req, res) => {
         const listenerProfileDetails = profileData.listenerProfileData[0];
         let parsedTopic = [];
         let parsedService = [];
-    
+
         try {
           parsedTopic = JSON.parse(listenerProfileDetails.topic);
           if (typeof parsedTopic === "string") {
@@ -413,52 +422,74 @@ const ProfilesData = async (req, res) => {
         } catch (err) {
           console.warn("Failed to parse topic:", listenerProfileDetails.topic);
         }
-    
+
         try {
           parsedService = JSON.parse(listenerProfileDetails.service);
           if (typeof parsedService === "string") {
             parsedService = JSON.parse(parsedService);
           }
         } catch (err) {
-          console.warn("Failed to parse service:", listenerProfileDetails.service);
+          console.warn(
+            "Failed to parse service:",
+            listenerProfileDetails.service
+          );
         }
-    
+
         // Merge listener profile data into main profile object
         Object.assign(profileData, {
           id: listenerProfileDetails.id,
           listenerId: listenerProfileDetails.listenerId,
           nick_name: listenerProfileDetails.nick_name,
           display_name: listenerProfileDetails.display_name,
-          gender: listenerProfileDetails.gender,
-          age: listenerProfileDetails.age,
-          topic: Array.isArray(parsedTopic) && parsedTopic.length > 0 ? parsedTopic : null,
-          service: Array.isArray(parsedService) && parsedService.length > 0 ? parsedService : null,
-          about: listenerProfileDetails.about,
-          call_availability_duration: listenerProfileDetails.call_availability_duration,
-          dob: listenerProfileDetails.dob,
-          image: listenerProfileDetails.image,
           display_image: listenerProfileDetails.display_image,
-          adhar_front: listenerProfileDetails.adhar_front,
-          adhar_back: listenerProfileDetails.adhar_back,
-          pancard: listenerProfileDetails.pancard,
           createdAt: listenerProfileDetails.createdAt,
           updatedAt: listenerProfileDetails.updatedAt,
         });
-    
+
         // Remove the nested listenerProfileData
         delete profileData.listenerProfileData;
       }
-    
+
       res.status(200).json({
         message: "profile found",
         profile: profileData,
       });
-    }
-    else {
+    } else {
+      const ProfilesData = await Database.user.findOne({
+        where: { id: userId },
+        attributes: [
+          "id",
+          "fullName",
+          "is_video_call_option",
+          "is_audio_call_option",
+          "is_chat_option",
+          "is_session_running",
+          "createdAt",
+          "updatedAt",
+        ],
+      });
+      
+      if (!ProfilesData) {
+        return res.status(404).send({
+          message: "Profile not found",
+        });
+      }
+      
+    
+      const profileData = ProfilesData.toJSON();
+      
+      profileData.userId = profileData.id;
+      profileData.nick_name = "";
+      profileData.display_name = profileData.fullName;
+      profileData.display_image = "";
+      delete profileData.fullName
+      // Send the response
       res.status(200).send({
         message: "profile found",
-        profile: Profiles,
+        profile: profileData,
       });
+      
+      
     }
   } catch (error) {
     console.error("Error fetching listener profile:", error);
@@ -611,5 +642,5 @@ module.exports = {
   login2Factor,
   verifyOtp2factor,
   recentUsersList,
-  ProfilesData
+  ProfilesData,
 };
