@@ -1,7 +1,5 @@
 const { Server } = require("socket.io");
-const {
-  listenersList,
-} = require("../controllers/admin/listener/listener");
+
 const { recentUsersList } = require("../controllers/auth/auth");
 const Database = require("../connections/connection");
 const Wallet = Database.wallet;
@@ -483,7 +481,224 @@ const endSessionSocket = (roomID, reason) => {
   io.to(roomID).emit("session_ended", { reason });
 };
 const getSocket = () => io;
+const listenersList = async (
+  socket,
+  { page = 1, pageSize = 10, gender, service, topic }
+) => {
+  try {
+    const offset = (page - 1) * pageSize;
 
+    // Fetch all listener users without applying filters in the query
+    const { count: totalRecords, rows: users } =
+      await Database.user.findAndCountAll({
+        where: {
+          role: "listener",
+        },
+        attributes: {
+          exclude: [
+            "referal_code",
+            "role",
+            "otp",
+            "country_code",
+            "isVerified",
+            "mobile_number",
+            "email",
+            "fcm_token",
+            "token",
+            "listener_request_status",
+            "deactivateDate",
+          ],
+        },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerProfileData",
+            required: false,
+          },
+          {
+            model: Database.feedback,
+            as: "ratingData",
+            required: false,
+          },
+          {
+            model: Database.session,
+            as: "listenerSessionData",
+            required: false,
+          },
+        ],
+      });
+
+    // Apply manual filters (case-insensitive)
+    let filteredUsers = users;
+
+    if (gender) {
+      const lowerCaseGender = gender.toLowerCase();
+      filteredUsers = filteredUsers.filter((user) => {
+        const listenerProfile = user.listenerProfileData?.[0];
+        return (
+          listenerProfile &&
+          listenerProfile.gender.toLowerCase() === lowerCaseGender
+        );
+      });
+    }
+
+    if (service) {
+      const lowerCaseService = service.toLowerCase();
+      filteredUsers = filteredUsers.filter((user) => {
+        const listenerProfile = user.listenerProfileData?.[0];
+        if (listenerProfile) {
+          let parsedService;
+          try {
+            parsedService = JSON.parse(listenerProfile.service);
+            if (typeof parsedService === "string") {
+              parsedService = JSON.parse(parsedService);
+            }
+          } catch (error) {
+            console.warn("Failed to parse service:", listenerProfile.service);
+          }
+          return (
+            Array.isArray(parsedService) &&
+            parsedService.some((s) => s.toLowerCase() === lowerCaseService)
+          );
+        }
+        return false;
+      });
+    }
+
+    if (topic) {
+      const lowerCaseTopic = topic.toLowerCase();
+      filteredUsers = filteredUsers.filter((user) => {
+        const listenerProfile = user.listenerProfileData?.[0];
+        if (listenerProfile) {
+          let parsedTopic;
+          try {
+            parsedTopic = JSON.parse(listenerProfile.topic);
+            if (typeof parsedTopic === "string") {
+              parsedTopic = JSON.parse(parsedTopic);
+            }
+          } catch (error) {
+            console.warn("Failed to parse topic:", listenerProfile.topic);
+          }
+          return (
+            Array.isArray(parsedTopic) &&
+            parsedTopic.some((t) => t.toLowerCase() === lowerCaseTopic)
+          );
+        }
+        return false;
+      });
+    }
+
+    // Paginate after applying filters
+    const paginatedUsers = filteredUsers.slice(offset, offset + pageSize);
+    const totalFilteredRecords = filteredUsers.length;
+
+    const processedUsers = paginatedUsers.map((user) => {
+      const listenerProfile = user.listenerProfileData?.[0] || null;
+
+      let parsedTopic = [];
+      let parsedService = [];
+
+      if (listenerProfile) {
+        try {
+          parsedTopic = JSON.parse(listenerProfile.topic);
+          if (typeof parsedTopic === "string") {
+            parsedTopic = JSON.parse(parsedTopic);
+          }
+        } catch (error) {
+          console.warn("Failed to parse topic:", listenerProfile.topic);
+        }
+
+        try {
+          parsedService = JSON.parse(listenerProfile.service);
+          if (typeof parsedService === "string") {
+            parsedService = JSON.parse(parsedService);
+          }
+        } catch (error) {
+          console.warn("Failed to parse service:", listenerProfile.service);
+        }
+      }
+
+      const listenerProfileUpdate = {
+        id: listenerProfile?.id || null,
+        listenerId: listenerProfile?.listenerId || null,
+        displayName: listenerProfile?.display_name || null,
+        nichName: listenerProfile?.nick_name || null,
+        gender: listenerProfile?.gender || null,
+        age: listenerProfile?.age || null,
+        topic:
+          Array.isArray(parsedTopic) && parsedTopic.length > 0
+            ? parsedTopic
+            : [],
+        service:
+          Array.isArray(parsedService) && parsedService.length > 0
+            ? parsedService
+            : [],
+        about: listenerProfile?.about || null,
+        image: listenerProfile?.image || null,
+      };
+
+      const feedbacks = user.ratingData || [];
+      const totalFeedbacks = feedbacks.length;
+
+      const starCounts = [0, 0, 0, 0, 0];
+      let totalStars = 0;
+
+      feedbacks.forEach((feedback) => {
+        const rating = feedback.rating;
+        if (rating >= 1 && rating <= 5) {
+          starCounts[rating - 1] += 1;
+          totalStars += rating;
+        }
+      });
+
+      const averageRating = totalFeedbacks
+        ? (totalStars / totalFeedbacks).toFixed(2)
+        : 0;
+
+      let totalDurationMinutes = 0;
+      const sessions = user.listenerSessionData || [];
+      sessions.forEach((session) => {
+        totalDurationMinutes += session.total_duration;
+      });
+
+      let formattedDuration;
+      if (totalDurationMinutes < 1) {
+        formattedDuration = `${(totalDurationMinutes * 60).toFixed(0)} seconds`;
+      } else if (totalDurationMinutes < 60) {
+        formattedDuration = `${totalDurationMinutes.toFixed(2)} minutes`;
+      } else {
+        formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
+      }
+
+      const { listenerSessionData, ratingData, ...userWithoutSessions } =
+        user.toJSON();
+
+      return {
+        ...userWithoutSessions,
+        listenerProfileData: listenerProfile ? listenerProfileUpdate : null,
+        feedbackStats: {
+          totalCount: totalFeedbacks,
+          averageRating: parseFloat(averageRating),
+        },
+        sessionStats: {
+          totalDurationMinutes,
+          formattedDuration,
+        },
+      };
+    });
+
+    socket.emit("listenersList", {
+      totalRecords: totalFilteredRecords,
+      totalPages: Math.ceil(totalFilteredRecords / pageSize),
+      currentPage: page,
+      pageSize,
+      users: processedUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching listeners list:", error);
+    socket.emit("error", { message: "Internal server error" });
+  }
+};
 const storyList = async (socket, { page, pageSize }) => {
   try {
       const offset = (page - 1) * pageSize;
