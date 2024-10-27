@@ -6,7 +6,6 @@ const { generateToken04 } = require("../../services/zegoCloudService");
 const appID = 886950579;
 const serverSecret = "5037c5dc318b8483b6c0229c44564e38";
 
-
 // manual otp //
 
 const register = async (req, res) => {
@@ -70,7 +69,6 @@ const register = async (req, res) => {
       user_id: newUser.id,
       balance: 0.0,
     });
-
 
     res.status(201).send({
       message: "User created",
@@ -187,8 +185,6 @@ const verification = async (req, res) => {
 
 // 2factor otp //
 
-
-
 // const register = async (req, res) => {
 //   try {
 //     const mobile = req.body.mobile_number;
@@ -258,7 +254,6 @@ const verification = async (req, res) => {
 //     });
 //   }
 // };
-
 
 const login2Factor = async (req, res) => {
   const mobile = req.body.mobile_number;
@@ -359,7 +354,119 @@ const verifyOtp2factor = async (req, res) => {
   }
 };
 
+const ProfilesData = async (req, res) => {
+  const userId = req.params.id;
 
+  try {
+    const Profiles = await Database.user.findOne({
+      where: { id: userId },
+    });
+    if (Profiles.role === "listener") {
+      const listenerProfile = await Database.user.findOne({
+        where: { id: userId },
+        attributes: {
+          exclude: [
+            "referal_code",
+            "role",
+            "otp",
+            "country_code",
+            "isVerified",
+            "mobile_number",
+            "email",
+            "fcm_token",
+            "token",
+            "isActivate",
+            "listener_request_status",
+            "deactivateDate",
+          ],
+        },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerProfileData",
+            required: false,
+          },
+        ],
+      });
+    
+      if (!listenerProfile) {
+        return res.status(404).json({
+          message: "Listener profile not found",
+        });
+      }
+    
+      const profileData = listenerProfile.toJSON();
+    
+      if (
+        profileData.listenerProfileData &&
+        profileData.listenerProfileData.length > 0
+      ) {
+        const listenerProfileDetails = profileData.listenerProfileData[0];
+        let parsedTopic = [];
+        let parsedService = [];
+    
+        try {
+          parsedTopic = JSON.parse(listenerProfileDetails.topic);
+          if (typeof parsedTopic === "string") {
+            parsedTopic = JSON.parse(parsedTopic);
+          }
+        } catch (err) {
+          console.warn("Failed to parse topic:", listenerProfileDetails.topic);
+        }
+    
+        try {
+          parsedService = JSON.parse(listenerProfileDetails.service);
+          if (typeof parsedService === "string") {
+            parsedService = JSON.parse(parsedService);
+          }
+        } catch (err) {
+          console.warn("Failed to parse service:", listenerProfileDetails.service);
+        }
+    
+        // Merge listener profile data into main profile object
+        Object.assign(profileData, {
+          id: listenerProfileDetails.id,
+          listenerId: listenerProfileDetails.listenerId,
+          nick_name: listenerProfileDetails.nick_name,
+          display_name: listenerProfileDetails.display_name,
+          gender: listenerProfileDetails.gender,
+          age: listenerProfileDetails.age,
+          topic: Array.isArray(parsedTopic) && parsedTopic.length > 0 ? parsedTopic : null,
+          service: Array.isArray(parsedService) && parsedService.length > 0 ? parsedService : null,
+          about: listenerProfileDetails.about,
+          call_availability_duration: listenerProfileDetails.call_availability_duration,
+          dob: listenerProfileDetails.dob,
+          image: listenerProfileDetails.image,
+          display_image: listenerProfileDetails.display_image,
+          adhar_front: listenerProfileDetails.adhar_front,
+          adhar_back: listenerProfileDetails.adhar_back,
+          pancard: listenerProfileDetails.pancard,
+          createdAt: listenerProfileDetails.createdAt,
+          updatedAt: listenerProfileDetails.updatedAt,
+        });
+    
+        // Remove the nested listenerProfileData
+        delete profileData.listenerProfileData;
+      }
+    
+      res.status(200).json({
+        message: "profile found",
+        profile: profileData,
+      });
+    }
+    else {
+      res.status(200).send({
+        message: "profile found",
+        profile: Profiles,
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching listener profile:", error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
 
 const logout = async (req, res) => {
   const id = req.body.id;
@@ -455,9 +562,6 @@ const sendOtp = async (phoneNumber) => {
   }
 };
 
-
-
-
 // const recentUsersList = async (req, res) => {
 //   try {
 //     const recentUsers = await Auth.findAll({
@@ -507,4 +611,5 @@ module.exports = {
   login2Factor,
   verifyOtp2factor,
   recentUsersList,
+  ProfilesData
 };

@@ -15,7 +15,10 @@ userControllerRouter.post("/verification", usersController.verification);
 // userControllerRouter.post("/login", usersController.login2Factor);
 userControllerRouter.post("/verification", usersController.verifyOtp2factor);
 userControllerRouter.get("/recent-users", usersController.recentUsersList);
-
+userControllerRouter.get(
+  "/profile/:id",
+  usersController.ProfilesData
+);
 
 
 
