@@ -8,6 +8,7 @@ const { getSocket } = require("../../../services/socketService");
 const Session = Database.session;
 const Leaves = Database.leaves;
 const Story = Database.story;
+const ListenerActivity = Database.listenerActivity;
 const ListenerProfile = Database.listenerProfile;
 const { storyList } = require("../../../services/socketService");
 
@@ -965,6 +966,11 @@ const setAvailabilityToggle = async (req, res) => {
     const updatedUser = await Auth.findOne({
       where: { id: listenerId, role: "listener" },
     });
+    await ListenerActivity.create({
+      listenerId: listenerId,
+      status: is_audio_call || is_audio_call || is_chat ? "active" : "inactive",
+      timestamp: new Date()
+  });
     return res.status(200).json({
       message: `listenerId's availability set successfully`,
       response: updatedUser,

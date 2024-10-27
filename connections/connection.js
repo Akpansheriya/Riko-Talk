@@ -99,7 +99,15 @@ Database.notification = require("../models/user/notification/notification")(
   sequelize,
   DataTypes
 );
+Database.sessionRejections = require("../models/auth/leaves/sessionRejections")(
+  sequelize,
+  DataTypes
+);
 Database.leaves = require("../models/auth/leaves/leaves")(
+  sequelize,
+  DataTypes
+);
+Database.listenerActivity = require("../models/auth/leaves/listenerActivity")(
   sequelize,
   DataTypes
 );

@@ -7,7 +7,7 @@ const Database = require("../connections/connection");
 const Wallet = Database.wallet;
 const Session = Database.session;
 const Auth = Database.user;
-const Leaves = Database.leaves;
+const Leaves = Database.sessionRejections;
 const { Op } = require("sequelize");
 let io;
 const activeUsers = {};

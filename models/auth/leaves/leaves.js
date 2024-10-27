@@ -9,21 +9,27 @@ module.exports = (sequelize, DataTypes) => {
       listenerId: {
         type: DataTypes.UUID,
         allowNull: false,
-        primaryKey: true,
-        defaultValue: DataTypes.UUIDV4,
+        references: {
+            model: 'Users', 
+            key: 'id'
+        }
       },
-      userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        primaryKey: true,
-        defaultValue: DataTypes.UUIDV4,
-      },
-      rejectedAt: {
-        type: DataTypes.DATE,
-        allowNULL: false,
-      },
-    });
-  
+      
+    leave_date: {
+        type: DataTypes.DATEONLY,
+        allowNull: false
+    },
+    leave_type: {
+        type: DataTypes.ENUM('system_generated', 'manual'),
+        defaultValue: 'system_generated'
+    },
+    reason: {
+        type: DataTypes.STRING,
+        defaultValue: 'Active time less than 3 hours'
+    }
+}, {
+    timestamps: true,
+});
     return leaves;
   };
   

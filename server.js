@@ -7,6 +7,7 @@ const routers = require("./routes/main/mainRoute");
 const { sequelize } = require("./connections/connection");
 const schedule = require("node-schedule");
 const socketService = require("./services/socketService");
+const { calculateDailyActiveTime, deleteOldInactiveUsers } = require("./helpers/job");
 
 dotenv.config({ path: "./connections/config.env" });
 
@@ -38,6 +39,7 @@ sequelize
   .catch((err) => console.error("Error synchronizing models:", err));
 
 schedule.scheduleJob("0 0 * * *", () => {
-  console.log("Running scheduled task: deleteOldInactiveUsers");
   job();
+  calculateDailyActiveTime()
+  deleteOldInactiveUsers()
 });
