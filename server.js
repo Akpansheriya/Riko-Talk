@@ -39,7 +39,6 @@ sequelize
   .catch((err) => console.error("Error synchronizing models:", err));
 
 schedule.scheduleJob("0 0 * * *", () => {
-  job();
   calculateDailyActiveTime()
   deleteOldInactiveUsers()
 });
