@@ -9,10 +9,8 @@ module.exports = (sequelize, DataTypes) => {
       listenerId: {
         type: DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'Users', 
-            key: 'id'
-        }
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4,
       },
       
     leave_date: {
