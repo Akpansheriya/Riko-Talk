@@ -13,7 +13,6 @@ dotenv.config({ path: "./connections/config.env" });
 
 const app = express();
 const port = process.env.PORT || 2000;
-
 const server = http.createServer(app);
 
 socketService.initSocket(server);

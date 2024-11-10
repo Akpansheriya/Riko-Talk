@@ -135,7 +135,7 @@ Database.story.belongsTo(Database.listenerProfile, {
 // ListenerProfile Model Association (optional if you want reverse association)
 Database.listenerProfile.hasMany(Database.story, {
   foreignKey: "listenerId",
-  sourceKey: "listenerId", // Ensure `listenerId` is used as the reference key
+  targetKey: "listenerId", // Ensure `listenerId` is used as the reference key
   as: "listenerStories",
 });
 
