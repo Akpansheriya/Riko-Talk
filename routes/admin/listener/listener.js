@@ -59,7 +59,8 @@ listenerControllerRouter.post(
   "/set-availability",
   listenerController.setAvailabilityToggle
 );
-
+listenerControllerRouter.post("/story/add-views", listenerController.views)
+listenerControllerRouter.get("/story/views-list/:id", listenerController.viewData)
 listenerControllerRouter.get("/daily-session-records/:listenerId", listenerController.sessionRecords)
 listenerControllerRouter.get("/leaves-record/:listenerId", listenerController.leaveRecords)
 module.exports = listenerControllerRouter;

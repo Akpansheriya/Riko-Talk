@@ -11,6 +11,7 @@ const Leaves = Database.leaves;
 const Story = Database.story;
 const ListenerActivity = Database.listenerActivity;
 const ListenerProfile = Database.listenerProfile;
+const Views = Database.views
 const moment = require("moment")
 const { storyList } = require("../../../services/socketService");
 
@@ -725,6 +726,56 @@ const approvedStory = async (req, res) => {
     });
   }
 };
+
+const views = async (req, res) => {
+  try {
+    const { storyId,listenerId,userId } = req.body;
+    const existView = await Views.findOne({where:{storyId:storyId,listenerId:listenerId,userId:userId}})
+    console.log("existView",existView)
+    if(existView) {
+      res.status(400).send({
+        message: "alreay view added",
+      });
+    }else{
+      const data = {
+        storyId,listenerId,userId
+      };
+      Views.create(data).then((result) => {
+        res.status(200).send({
+          message: "view added successfulyy",
+          view: result,
+        });
+      });
+    }
+   
+  } catch (error) {
+    console.error("Error adding views:", error);
+    res.status(500).send({
+      message: "Error adding views",
+      error: error,
+    });
+  }
+};
+
+const viewData = async (req,res) => {
+  try {
+    const {id} = req.params
+    const viewsData = await Views.findAll({
+      where: { storyId:id },
+    });
+    res.status(200).send({
+      message: "views list",
+      views: viewsData.length,
+    });
+  } catch (error) {
+    console.error("Error fetching views:", error);
+    res.status(500).send({
+      message: "Error fetching views",
+      error: error,
+    });
+  }
+}
+
 const setAvailabilityToggle = async (req, res) => {
   const { listenerId, is_video_call, is_audio_call, is_chat } = req.body;
 
@@ -948,4 +999,6 @@ module.exports = {
   storyList,
   sessionRecords,
   leaveRecords,
+  views,
+  viewData
 };

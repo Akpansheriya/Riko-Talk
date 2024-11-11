@@ -111,6 +111,10 @@ Database.listenerActivity = require("../models/auth/leaves/listenerActivity")(
   sequelize,
   DataTypes
 );
+Database.views = require("../models/auth/story/views")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {
