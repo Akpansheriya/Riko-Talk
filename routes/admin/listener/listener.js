@@ -27,10 +27,10 @@ listenerControllerRouter.post(
   "/listener-request-approval",
   listenerController.listenerRequestApproval
 );
-// listenerControllerRouter.get(
-//   "/listeners-list",
-//   listenerController.listenersList
-// );
+listenerControllerRouter.get(
+  "/listeners-list",
+  listenerController.listenersList
+);
 listenerControllerRouter.get(
   "/listener-profile/:id",
   listenerController.listenerProfile

@@ -291,7 +291,20 @@ const listenerRequestApproval = async (req, res) => {
 //   }
 // };
 
-
+const listenersList = async (req,res) => {
+  try {
+    const listenersList = await Auth.findAll({where:{role:"listener"}})
+    res.status(200).json({
+      message: "Listeners list",
+      listenersList: listenersList,
+    });
+  } catch (error) {
+    console.error("Error fetching listeners list:", error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+}
 const listenerProfile = async (req, res) => {
   const userId = req.params.id;
 
@@ -988,7 +1001,7 @@ module.exports = {
   storeQuestions,
   updateQuestions,
   listenerRequestApproval,
-  // listenersList,
+   listenersList,
   listenerProfile,
   listenerProfileRecent,
   ratingList,
