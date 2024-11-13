@@ -29,8 +29,8 @@ const initSocket = (server) => {
 
       socket.on(
         "listenersList",
-        ({ page, pageSize, gender, service, topic }) => {
-          listenersList(socket, { page, pageSize, gender, service, topic });
+        ({ page, pageSize, gender, service, topic ,age }) => {
+          listenersList(socket, { page, pageSize, gender, service, topic,age });
         }
       );
       socket.on("storyList", ({ page, pageSize }) => {
@@ -481,12 +481,26 @@ const endSessionSocket = (roomID, reason) => {
   io.to(roomID).emit("session_ended", { reason });
 };
 const getSocket = () => io;
+const safeParseJSON = (value) => {
+  try {
+    const parsedValue = JSON.parse(value);
+    return typeof parsedValue === "string" ? JSON.parse(parsedValue) : parsedValue;
+  } catch (error) {
+    console.warn("Failed to parse JSON:", value);
+    return []; // Return an empty array if parsing fails
+  }
+};
+
 const listenersList = async (
   socket,
-  { page = 1, pageSize = 10, gender, service, topic }
+  { page = 1, pageSize = 10, gender, age, service = [], topic = [] }
 ) => {
   try {
     const offset = (page - 1) * pageSize;
+  
+
+    // Log the incoming parameters for debugging
+    console.log("Incoming Request:", { page, pageSize, gender, service, topic, age });
 
     // Fetch all listener users without applying filters in the query
     const { count: totalRecords, rows: users } =
@@ -531,60 +545,63 @@ const listenersList = async (
     // Apply manual filters (case-insensitive)
     let filteredUsers = users;
 
+    // Filter by gender
     if (gender) {
       const lowerCaseGender = gender.toLowerCase();
       filteredUsers = filteredUsers.filter((user) => {
         const listenerProfile = user.listenerProfileData?.[0];
         return (
           listenerProfile &&
-          listenerProfile.gender.toLowerCase() === lowerCaseGender
+          listenerProfile.gender?.toLowerCase() === lowerCaseGender
         );
       });
     }
 
-    if (service) {
-      const lowerCaseService = service.toLowerCase();
+    // Filter by service (array-based matching)
+    if (Array.isArray(service) && service.length > 0) {
+      const lowerCaseServices = service.map((s) => s.toLowerCase());
       filteredUsers = filteredUsers.filter((user) => {
         const listenerProfile = user.listenerProfileData?.[0];
-        if (listenerProfile) {
-          let parsedService;
-          try {
-            parsedService = JSON.parse(listenerProfile.service);
-            if (typeof parsedService === "string") {
-              parsedService = JSON.parse(parsedService);
-            }
-          } catch (error) {
-            console.warn("Failed to parse service:", listenerProfile.service);
+        if (listenerProfile?.service) {
+          const parsedService = safeParseJSON(listenerProfile.service);
+          if (Array.isArray(parsedService)) {
+            return parsedService.some((s) =>
+              lowerCaseServices.includes(s.toLowerCase())
+            );
           }
-          return (
-            Array.isArray(parsedService) &&
-            parsedService.some((s) => s.toLowerCase() === lowerCaseService)
-          );
         }
         return false;
       });
     }
 
-    if (topic) {
-      const lowerCaseTopic = topic.toLowerCase();
+    // Filter by topic (array-based matching)
+    if (Array.isArray(topic) && topic.length > 0) {
+      const lowerCaseTopics = topic.map((t) => t.toLowerCase());
       filteredUsers = filteredUsers.filter((user) => {
         const listenerProfile = user.listenerProfileData?.[0];
-        if (listenerProfile) {
-          let parsedTopic;
-          try {
-            parsedTopic = JSON.parse(listenerProfile.topic);
-            if (typeof parsedTopic === "string") {
-              parsedTopic = JSON.parse(parsedTopic);
-            }
-          } catch (error) {
-            console.warn("Failed to parse topic:", listenerProfile.topic);
+        if (listenerProfile?.topic) {
+          const parsedTopic = safeParseJSON(listenerProfile.topic);
+          if (Array.isArray(parsedTopic)) {
+            return parsedTopic.some((t) =>
+              lowerCaseTopics.includes(t.toLowerCase())
+            );
           }
-          return (
-            Array.isArray(parsedTopic) &&
-            parsedTopic.some((t) => t.toLowerCase() === lowerCaseTopic)
-          );
         }
         return false;
+      });
+    }
+
+    // Filter by age range
+    if (age) {
+      const [minAge, maxAge] = age.split("-").map((age) => parseInt(age));
+      console.log("Applying age filter:", { minAge, maxAge });
+      filteredUsers = filteredUsers.filter((user) => {
+        const listenerProfile = user.listenerProfileData?.[0];
+        if (listenerProfile?.age != null) {
+          const profileAge = listenerProfile.age;
+          return profileAge >= minAge && profileAge <= maxAge;
+        }
+        return true; // Include users without age
       });
     }
 
@@ -595,28 +612,12 @@ const listenersList = async (
     const processedUsers = paginatedUsers.map((user) => {
       const listenerProfile = user.listenerProfileData?.[0] || null;
 
-      let parsedTopic = [];
-      let parsedService = [];
-
-      if (listenerProfile) {
-        try {
-          parsedTopic = JSON.parse(listenerProfile.topic);
-          if (typeof parsedTopic === "string") {
-            parsedTopic = JSON.parse(parsedTopic);
-          }
-        } catch (error) {
-          console.warn("Failed to parse topic:", listenerProfile.topic);
-        }
-
-        try {
-          parsedService = JSON.parse(listenerProfile.service);
-          if (typeof parsedService === "string") {
-            parsedService = JSON.parse(parsedService);
-          }
-        } catch (error) {
-          console.warn("Failed to parse service:", listenerProfile.service);
-        }
-      }
+      const parsedTopic = listenerProfile?.topic
+        ? safeParseJSON(listenerProfile.topic)
+        : [];
+      const parsedService = listenerProfile?.service
+        ? safeParseJSON(listenerProfile.service)
+        : [];
 
       const listenerProfileUpdate = {
         id: listenerProfile?.id || null,
@@ -699,6 +700,11 @@ const listenersList = async (
     socket.emit("error", { message: "Internal server error" });
   }
 };
+
+
+
+
+
 const storyList = async (socket, { page, pageSize }) => {
   try {
       const offset = (page - 1) * pageSize;
