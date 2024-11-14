@@ -3,6 +3,7 @@ const uploadToS3 = require("../../../helpers/amazons3");
 const Auth = Database.user;
 const Form = Database.form;
 const ListenerProfile = Database.listenerProfile;
+const Questions = Database.questions;
 const listenerRequest = async (req, res) => {
   const userId = req.body.id;
 
@@ -119,50 +120,68 @@ const submitForm = async (req, res) => {
       userId,
       fullName,
       gender,
-      describe_yourself,
       dob,
       mobile_number,
       email,
-      resume,
-      question1,
+      audio, 
+      reference,
       answer1,
-      question2,
       answer2,
-      question3,
       answer3,
-      question4,
       answer4,
-      question5,
-      answer5,
     } = req.body;
+
+    const resumeFile = req?.files?.resume?.[0];
+    if (!resumeFile || !audio) {
+      return res.status(400).json({ message: "Resume and audio are required." });
+    }
+
+    const resumeUrl = await uploadToS3(resumeFile, "resumes");
+    const matches = audio.match(/^data:(.+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ message: "Invalid audio format." });
+    }
+    const audioBuffer = Buffer.from(matches[2], "base64");
+    const audioMimeType = matches[1];
+    const audioFile = {
+      buffer: audioBuffer,
+      originalname: `audio-message-${Date.now()}.webm`, 
+      mimetype: audioMimeType,
+    };
+    const audioUrl = await uploadToS3(audioFile, "audios");
+    const questions = await Questions.findOne({
+      where: { id: "b82d75e2-5e32-4f2f-820d-c59506302e63" },
+    });
+
     const formData = {
       userId,
       fullName,
       gender,
-      describe_yourself,
       dob,
       mobile_number,
       email,
-      resume,
-      question1,
+      audio: audioUrl,
+      reference,
+      resume: resumeUrl,
+      question1: questions.question1,
       answer1,
-      question2,
+      question2: questions.question2,
       answer2,
-      question3,
+      question3: questions.question3,
       answer3,
-      question4,
+      question4: questions.question4,
       answer4,
-      question5,
-      answer5,
     };
 
     const newForm = await Form.create(formData);
+
     if (userId) {
       await Auth.update(
         { listener_request_status: "confirmation request" },
         { where: { id: userId } }
       );
     }
+
     return res.status(201).json({
       message: "Form submitted successfully",
       form: newForm,
@@ -175,6 +194,7 @@ const submitForm = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   listenerRequest,

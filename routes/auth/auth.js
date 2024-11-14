@@ -27,7 +27,7 @@ userControllerRouter.post(
   "/listener-request",
   listenersController.listenerRequest
 );
-userControllerRouter.post("/form", listenersController.submitForm);
+userControllerRouter.post("/form",upload.fields([{name:"resume",maxCount:1}]), listenersController.submitForm);
 
 userControllerRouter.post(
   "/listener-profile-setup",

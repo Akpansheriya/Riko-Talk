@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNULL: false,
     },
-    describe_yourself: {
+    reference: {
       type: DataTypes.STRING,
       allowNULL: false,
     },
@@ -73,11 +73,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNULL: false,
     },
-    question5: {
-      type: DataTypes.STRING,
-      allowNULL: false,
-    },
-    answer5: {
+    audio: {
       type: DataTypes.STRING,
       allowNULL: false,
     },
