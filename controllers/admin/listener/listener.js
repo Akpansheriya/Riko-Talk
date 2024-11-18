@@ -54,7 +54,7 @@ const listenerFormLink = async (req, res) => {
     await sendEmail(
       user.email,
       "Form Link",
-      "Please click the link below to access the form:\n\nhttps://talkandrelax.in/listerner-questions/"
+      `Please click the link below to access the form:\n\nhttps://talkandrelax.in/listerner-questions?userId=${userId}`
     );
 
     await Auth.update(
@@ -931,7 +931,6 @@ const leaveRecords = async (req, res) => {
     });
   }
 };
-
 
 const sessionRecords = async (req, res) => {
   try {

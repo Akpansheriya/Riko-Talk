@@ -39,7 +39,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     resume: {
       type: DataTypes.STRING,
-      allowNULL: false,
+     
     },
     question1: {
       type: DataTypes.STRING,
@@ -75,7 +75,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     audio: {
       type: DataTypes.STRING,
-      allowNULL: false,
+    
     },
   });
 
