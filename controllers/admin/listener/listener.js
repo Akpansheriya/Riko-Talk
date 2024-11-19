@@ -290,13 +290,142 @@ const listenerRequestApproval = async (req, res) => {
 //     res.status(500).json({ message: "Internal server error" });
 //   }
 // };
-
-const listenersList = async (req,res) => {
+const safeParseJSON = (value) => {
   try {
-    const listenersList = await Auth.findAll({where:{role:"listener"}})
+    const parsedValue = JSON.parse(value);
+    return typeof parsedValue === "string" ? JSON.parse(parsedValue) : parsedValue;
+  } catch (error) {
+    console.warn("Failed to parse JSON:", value);
+    return []; // Return an empty array if parsing fails
+  }
+};
+const listenersList = async (req, res) => {
+  try {
+    console.log("Fetching all listener data without filters or pagination");
+
+    // Fetch all listener users without filters
+    const { count: totalRecords, rows: users } = await Database.user.findAndCountAll({
+      where: {
+        role: "listener",
+      },
+      attributes: {
+        exclude: [
+          "referal_code",
+          "role",
+          "otp",
+          "country_code",
+          "isVerified",
+          "mobile_number",
+          "email",
+          "fcm_token",
+          "token",
+          "listener_request_status",
+          "deactivateDate",
+        ],
+      },
+      include: [
+        {
+          model: Database.listenerProfile,
+          as: "listenerProfileData",
+          required: false,
+        },
+        {
+          model: Database.feedback,
+          as: "ratingData",
+          required: false,
+        },
+        {
+          model: Database.session,
+          as: "listenerSessionData",
+          required: false,
+        },
+      ],
+    });
+
+    // Process users to include profile, feedback, and session stats
+    const processedUsers = users.map((user) => {
+      const listenerProfile = user.listenerProfileData?.[0] || null;
+
+      const parsedTopic = listenerProfile?.topic
+        ? safeParseJSON(listenerProfile.topic)
+        : [];
+      const parsedService = listenerProfile?.service
+        ? safeParseJSON(listenerProfile.service)
+        : [];
+
+      const listenerProfileUpdate = {
+        id: listenerProfile?.id || null,
+        listenerId: listenerProfile?.listenerId || null,
+        displayName: listenerProfile?.display_name || null,
+        nichName: listenerProfile?.nick_name || null,
+        gender: listenerProfile?.gender || null,
+        age: listenerProfile?.age || null,
+        topic:
+          Array.isArray(parsedTopic) && parsedTopic.length > 0
+            ? parsedTopic
+            : [],
+        service:
+          Array.isArray(parsedService) && parsedService.length > 0
+            ? parsedService
+            : [],
+        about: listenerProfile?.about || null,
+        image: listenerProfile?.image || null,
+      };
+
+      const feedbacks = user.ratingData || [];
+      const totalFeedbacks = feedbacks.length;
+
+      const starCounts = [0, 0, 0, 0, 0];
+      let totalStars = 0;
+
+      feedbacks.forEach((feedback) => {
+        const rating = feedback.rating;
+        if (rating >= 1 && rating <= 5) {
+          starCounts[rating - 1] += 1;
+          totalStars += rating;
+        }
+      });
+
+      const averageRating = totalFeedbacks
+        ? (totalStars / totalFeedbacks).toFixed(2)
+        : 0;
+
+      let totalDurationMinutes = 0;
+      const sessions = user.listenerSessionData || [];
+      sessions.forEach((session) => {
+        totalDurationMinutes += session.total_duration;
+      });
+
+      let formattedDuration;
+      if (totalDurationMinutes < 1) {
+        formattedDuration = `${(totalDurationMinutes * 60).toFixed(0)} seconds`;
+      } else if (totalDurationMinutes < 60) {
+        formattedDuration = `${totalDurationMinutes.toFixed(2)} minutes`;
+      } else {
+        formattedDuration = `${(totalDurationMinutes / 60).toFixed(2)} hours`;
+      }
+
+      const { listenerSessionData, ratingData, ...userWithoutSessions } =
+        user.toJSON();
+
+      return {
+        ...userWithoutSessions,
+        listenerProfileData: listenerProfile ? listenerProfileUpdate : null,
+        feedbackStats: {
+          totalCount: totalFeedbacks,
+          averageRating: parseFloat(averageRating),
+        },
+        sessionStats: {
+          totalDurationMinutes,
+          formattedDuration,
+        },
+      };
+    });
+
+    // Respond with all listener data without filters or pagination
     res.status(200).json({
       message: "Listeners list",
-      listenersList: listenersList,
+      listenersList: processedUsers,
     });
   } catch (error) {
     console.error("Error fetching listeners list:", error);
@@ -304,7 +433,8 @@ const listenersList = async (req,res) => {
       message: "Internal server error",
     });
   }
-}
+};
+
 const listenerProfile = async (req, res) => {
   const userId = req.params.id;
 
