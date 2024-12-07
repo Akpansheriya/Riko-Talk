@@ -982,7 +982,7 @@ const setAvailabilityToggle = async (req, res) => {
     });
     await ListenerActivity.create({
       listenerId: listenerId,
-      status: is_audio_call || is_audio_call || is_chat ? "active" : "inactive",
+      status: is_audio_call || is_audio_call || is_chat_option ? "active" : "inactive",
       timestamp: new Date(),
     });
     return res.status(200).json({
