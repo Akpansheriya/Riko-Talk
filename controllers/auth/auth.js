@@ -256,7 +256,7 @@ const login2Factor = async (req, res) => {
   const mobile = req.body.mobile_number;
 
   try {
-    if (mobile === 9988776655) {
+    if (mobile === 9988776655 || mobile === 9978895047) {
       const user = await Auth.findOne({ where: { mobile_number: mobile } });
 
       if (!user) {
@@ -303,7 +303,7 @@ const verifyOtp2factor = async (req, res) => {
   const { mobile_number, otp_input } = req.body;
 
   try {
-    if (mobile_number === 9988776655) {
+    if (mobile_number === 9988776655 || mobile_number === 9978895047) {
       const user = await Auth.findOne({ where: { mobile_number } });
 
       if (!user) {
