@@ -78,10 +78,16 @@ module.exports = (sequelize, DataTypes) => {
     account_freeze: {
       type: DataTypes.BOOLEAN,
     },
+    is_online: {
+      type: DataTypes.BOOLEAN,
+    },
     listener_request_status: {
       type: DataTypes.STRING,
     },
     deactivateDate: {
+      type: DataTypes.DATE,
+    },
+    last_seen: {
       type: DataTypes.DATE,
     },
     otp_session_id: {

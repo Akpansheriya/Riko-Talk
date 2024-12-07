@@ -25,7 +25,7 @@ const initSocket = (server) => {
         methods: ["GET", "POST"],
       },
     });
-      
+
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
 
@@ -67,13 +67,22 @@ const initSocket = (server) => {
         }
       });
 
-      socket.on("user-login", (data) => {
+      socket.on("user-login", async(data) => {
         const userId = data.userId;
         if (typeof userId !== "string") {
           logAndEmit(socket, "error", { message: "Invalid user ID format" });
           return;
         }
-
+        const status = await Auth.findOne({ where: { id: userId } });
+        console.log("status",status)
+        if (status.role === "user") {
+          Auth.update(
+            {
+              is_online: true,
+            },
+            { where: { id: userId } }
+          );
+        }
         activeUsers[userId] = { socketId: socket.id, status: "available" };
         console.log("Active Users:", activeUsers);
         logAndEmit(socket, "loginStatus", { userId, status: "available" });
@@ -489,7 +498,18 @@ const initSocket = (server) => {
                   reason: "Socket disconnected",
                 });
               }
-
+              console.log("userId",userId)
+              console.log("user",user)
+           const status = await Auth.findOne({where:{id:userId}})
+           if(status.role  === "user") {
+                await Auth.update(
+                  {
+                    is_online: false,
+                    last_seen:new Date()
+                  },
+                  { where: { id: userId } }
+                );
+              }
               if (
                 user &&
                 (user.is_audio_call_option === true ||
