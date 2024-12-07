@@ -6,22 +6,32 @@ const coupenRouter = require("../admin/coupen/coupen");
 const feedbackRouter = require("../user/feedback");
 const listenerRouter = require("../admin/listener/listener");
 const walletRouter = require("../user/wallet");
+const adminWalletRouter = require("../admin/adminWallet/adminWallet");
 const notificationRouter = require("../notification/notification");
 const sessionRouter = require("../user/session");
 const blockListenerRouter = require("../user/blockListener");
 const queriesRouter = require("../admin/queries/query");
+const rechargePlanRouter = require("../admin/recharge_plan/recharge");
+const adminRouter = require("../admin/manage_role/admin");
+const listenerWalletRouter = require("../auth/listenerWallet");
+const userPaymentRouter = require("../user/recharge");
 const routers = express.Router();
 
 //Define all routers here
 
 routers.use("/user", userRouter,blockListenerRouter);
+routers.use("/admin", adminRouter)
 routers.use("/support", supportRouter);
 routers.use("/contact", contactRouter);
 routers.use("/coupen", coupenRouter);
 routers.use("/feedback", feedbackRouter);
 routers.use("/listener", listenerRouter);
+routers.use("/listener/wallet", listenerWalletRouter);
 routers.use("/session", sessionRouter);
 routers.use("/wallet", walletRouter);
+routers.use("/admin-wallet", adminWalletRouter);
 routers.use("/notification", notificationRouter);
 routers.use("/queries", queriesRouter );
+routers.use("/plans", rechargePlanRouter );
+routers.use("/user/payment", userPaymentRouter );
 module.exports = routers;

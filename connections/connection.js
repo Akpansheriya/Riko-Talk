@@ -87,6 +87,10 @@ Database.blockListener = require("../models/user/block_listener/blockListener")(
   sequelize,
   DataTypes
 );
+Database.blockUser = require("../models/auth/block_user/blockUser")(
+  sequelize,
+  DataTypes
+);
 Database.story = require("../models/auth/story/story")(
   sequelize,
   DataTypes
@@ -112,6 +116,26 @@ Database.listenerActivity = require("../models/auth/leaves/listenerActivity")(
   DataTypes
 );
 Database.views = require("../models/auth/story/views")(
+  sequelize,
+  DataTypes
+);
+Database.rechargePlan = require("../models/admin/recharge_plan/rechargePlan")(
+  sequelize,
+  DataTypes
+);
+Database.admin = require("../models/admin/manage_roles/admin")(
+  sequelize,
+  DataTypes
+);
+Database.adminWallet = require("../models/admin/wallet/adminWallet")(
+  sequelize,
+  DataTypes
+);
+Database.listenerWallet = require("../models/auth/listener_wallet/listenerWallet")(
+  sequelize,
+  DataTypes
+);
+Database.userOrder = require("../models/user/recharge/recharge")(
   sequelize,
   DataTypes
 );

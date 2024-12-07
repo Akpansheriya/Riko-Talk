@@ -19,7 +19,7 @@ userControllerRouter.get(
   "/profile/:id",
   usersController.ProfilesData
 );
-
+userControllerRouter.post("/account-freeze", usersController.accountFreeze);
 
 
 // listener profile
@@ -28,7 +28,10 @@ userControllerRouter.post(
   listenersController.listenerRequest
 );
 userControllerRouter.post("/form",upload.fields([{name:"resume",maxCount:1}]), listenersController.submitForm);
-
+userControllerRouter.put(
+  "/update=charges/:id",
+  listenersController.updateCharges
+);
 userControllerRouter.post(
   "/listener-profile-setup",
   upload.fields([

@@ -11,8 +11,8 @@ const Leaves = Database.leaves;
 const Story = Database.story;
 const ListenerActivity = Database.listenerActivity;
 const ListenerProfile = Database.listenerProfile;
-const Views = Database.views
-const moment = require("moment")
+const Views = Database.views;
+const moment = require("moment");
 const { storyList } = require("../../../services/socketService");
 
 const listenerRequestList = async (req, res) => {
@@ -293,7 +293,9 @@ const listenerRequestApproval = async (req, res) => {
 const safeParseJSON = (value) => {
   try {
     const parsedValue = JSON.parse(value);
-    return typeof parsedValue === "string" ? JSON.parse(parsedValue) : parsedValue;
+    return typeof parsedValue === "string"
+      ? JSON.parse(parsedValue)
+      : parsedValue;
   } catch (error) {
     console.warn("Failed to parse JSON:", value);
     return []; // Return an empty array if parsing fails
@@ -304,43 +306,44 @@ const listenersList = async (req, res) => {
     console.log("Fetching all listener data without filters or pagination");
 
     // Fetch all listener users without filters
-    const { count: totalRecords, rows: users } = await Database.user.findAndCountAll({
-      where: {
-        role: "listener",
-      },
-      attributes: {
-        exclude: [
-          "referal_code",
-          "role",
-          "otp",
-          "country_code",
-          "isVerified",
-          "mobile_number",
-          "email",
-          "fcm_token",
-          "token",
-          "listener_request_status",
-          "deactivateDate",
+    const { count: totalRecords, rows: users } =
+      await Database.user.findAndCountAll({
+        where: {
+          role: "listener",
+        },
+        attributes: {
+          exclude: [
+            "referal_code",
+            "role",
+            "otp",
+            "country_code",
+            "isVerified",
+            "mobile_number",
+            "email",
+            "fcm_token",
+            "token",
+            "listener_request_status",
+            "deactivateDate",
+          ],
+        },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerProfileData",
+            required: false,
+          },
+          {
+            model: Database.feedback,
+            as: "ratingData",
+            required: false,
+          },
+          {
+            model: Database.session,
+            as: "listenerSessionData",
+            required: false,
+          },
         ],
-      },
-      include: [
-        {
-          model: Database.listenerProfile,
-          as: "listenerProfileData",
-          required: false,
-        },
-        {
-          model: Database.feedback,
-          as: "ratingData",
-          required: false,
-        },
-        {
-          model: Database.session,
-          as: "listenerSessionData",
-          required: false,
-        },
-      ],
-    });
+      });
 
     // Process users to include profile, feedback, and session stats
     const processedUsers = users.map((user) => {
@@ -352,7 +355,9 @@ const listenersList = async (req, res) => {
       const parsedService = listenerProfile?.service
         ? safeParseJSON(listenerProfile.service)
         : [];
-
+        const parsedLanguages = listenerProfile?.languages
+        ? safeParseJSON(listenerProfile.languages)
+        : [];
       const listenerProfileUpdate = {
         id: listenerProfile?.id || null,
         listenerId: listenerProfile?.listenerId || null,
@@ -368,6 +373,10 @@ const listenersList = async (req, res) => {
           Array.isArray(parsedService) && parsedService.length > 0
             ? parsedService
             : [],
+            languages:
+            Array.isArray(parsedLanguages) && parsedLanguages.length > 0
+              ? parsedLanguages
+              : [],
         about: listenerProfile?.about || null,
         image: listenerProfile?.image || null,
       };
@@ -421,8 +430,6 @@ const listenersList = async (req, res) => {
         },
       };
     });
-
-    // Respond with all listener data without filters or pagination
     res.status(200).json({
       message: "Listeners list",
       listenersList: processedUsers,
@@ -482,6 +489,7 @@ const listenerProfile = async (req, res) => {
         (data) => {
           let parsedTopic = [];
           let parsedService = [];
+          let parsedLanguages = [];
 
           try {
             parsedTopic = JSON.parse(data.topic);
@@ -500,7 +508,14 @@ const listenerProfile = async (req, res) => {
           } catch (err) {
             console.warn("Failed to parse service:", data.service);
           }
-
+          try {
+            parsedLanguages = JSON.parse(data.languages);
+            if (typeof parsedLanguages === "string") {
+              parsedLanguages = JSON.parse(parsedLanguages);
+            }
+          } catch (err) {
+            console.warn("Failed to parse languages:", data.languages);
+          }
           return {
             ...data,
             topic:
@@ -510,6 +525,10 @@ const listenerProfile = async (req, res) => {
             service:
               Array.isArray(parsedService) && parsedService.length > 0
                 ? parsedService
+                : null,
+            languages:
+              Array.isArray(parsedLanguages) && parsedLanguages.length > 0
+                ? parsedLanguages
                 : null,
           };
         }
@@ -575,6 +594,7 @@ const listenerProfileRecent = async (req, res) => {
 
       let parsedTopic = [];
       let parsedService = [];
+      let parsedLanguages = [];
 
       if (listenerProfile) {
         try {
@@ -594,8 +614,17 @@ const listenerProfileRecent = async (req, res) => {
         } catch (error) {
           console.warn("Failed to parse service:", listenerProfile.service);
         }
+        try {
+          parsedLanguages = JSON.parse(listenerProfile.languages);
+          if (typeof parsedLanguages === "string") {
+            parsedLanguages = JSON.parse(parsedLanguages);
+          }
+        } catch (error) {
+          console.warn("Failed to parse languages:", listenerProfile.languages);
+        }
       }
 
+      
       const sessionData = {
         user_id: session.user_id,
         listener_id: listenerProfile?.listenerId || null,
@@ -609,6 +638,10 @@ const listenerProfileRecent = async (req, res) => {
           Array.isArray(parsedService) && parsedService.length > 0
             ? parsedService
             : null,
+            languages:
+            Array.isArray(parsedLanguages) && parsedLanguages.length > 0
+              ? parsedLanguages
+              : null,
         about: listenerProfile?.about || null,
         image: listenerProfile?.image || null,
       };
@@ -872,16 +905,20 @@ const approvedStory = async (req, res) => {
 
 const views = async (req, res) => {
   try {
-    const { storyId,listenerId,userId } = req.body;
-    const existView = await Views.findOne({where:{storyId:storyId,listenerId:listenerId,userId:userId}})
-    console.log("existView",existView)
-    if(existView) {
+    const { storyId, listenerId, userId } = req.body;
+    const existView = await Views.findOne({
+      where: { storyId: storyId, listenerId: listenerId, userId: userId },
+    });
+    console.log("existView", existView);
+    if (existView) {
       res.status(400).send({
         message: "alreay view added",
       });
-    }else{
+    } else {
       const data = {
-        storyId,listenerId,userId
+        storyId,
+        listenerId,
+        userId,
       };
       Views.create(data).then((result) => {
         res.status(200).send({
@@ -890,7 +927,6 @@ const views = async (req, res) => {
         });
       });
     }
-   
   } catch (error) {
     console.error("Error adding views:", error);
     res.status(500).send({
@@ -900,11 +936,11 @@ const views = async (req, res) => {
   }
 };
 
-const viewData = async (req,res) => {
+const viewData = async (req, res) => {
   try {
-    const {id} = req.params
+    const { id } = req.params;
     const viewsData = await Views.findAll({
-      where: { storyId:id },
+      where: { storyId: id },
     });
     res.status(200).send({
       message: "views list",
@@ -917,10 +953,10 @@ const viewData = async (req,res) => {
       error: error,
     });
   }
-}
+};
 
 const setAvailabilityToggle = async (req, res) => {
-  const { listenerId, is_video_call, is_audio_call, is_chat } = req.body;
+  const { listenerId, is_video_call, is_audio_call, is_chat_option } = req.body;
 
   try {
     const user = await Auth.findOne({
@@ -936,7 +972,7 @@ const setAvailabilityToggle = async (req, res) => {
       {
         is_video_call_option: is_video_call,
         is_audio_call_option: is_audio_call,
-        is_chat_option: is_chat,
+        is_chat_option: is_chat_option,
         role: "listener",
       },
       { where: { id: listenerId } }
@@ -947,8 +983,8 @@ const setAvailabilityToggle = async (req, res) => {
     await ListenerActivity.create({
       listenerId: listenerId,
       status: is_audio_call || is_audio_call || is_chat ? "active" : "inactive",
-      timestamp: new Date()
-  });
+      timestamp: new Date(),
+    });
     return res.status(200).json({
       message: `listenerId's availability set successfully`,
       response: updatedUser,
@@ -972,34 +1008,42 @@ const leaveRecords = async (req, res) => {
       where: { listenerId: listenerId },
     });
 
-    if ((!sessionRejection || sessionRejection.length === 0) && (!leaveData || leaveData.length === 0)) {
+    if (
+      (!sessionRejection || sessionRejection.length === 0) &&
+      (!leaveData || leaveData.length === 0)
+    ) {
       return res.status(200).send({
         message: "No leave records found",
         data: [],
       });
     }
 
-    const groupedLeaves = [...sessionRejection, ...leaveData].reduce((acc, record) => {
-      const dateKey = new Date(record.rejectedAt || record.leave_date).toLocaleDateString("en-GB");
+    const groupedLeaves = [...sessionRejection, ...leaveData].reduce(
+      (acc, record) => {
+        const dateKey = new Date(
+          record.rejectedAt || record.leave_date
+        ).toLocaleDateString("en-GB");
 
-      if (!acc[dateKey]) {
-        acc[dateKey] = {
-          date: dateKey,
-          totalLeaves: 0,
-          missedSessions: 0,
-        };
-      }
+        if (!acc[dateKey]) {
+          acc[dateKey] = {
+            date: dateKey,
+            totalLeaves: 0,
+            missedSessions: 0,
+          };
+        }
 
-      if (record.leave_date) {
-        acc[dateKey].totalLeaves += 1;
-      }
+        if (record.leave_date) {
+          acc[dateKey].totalLeaves += 1;
+        }
 
-      if (record.rejectedAt) {
-        acc[dateKey].missedSessions += 1;
-      }
+        if (record.rejectedAt) {
+          acc[dateKey].missedSessions += 1;
+        }
 
-      return acc;
-    }, {});
+        return acc;
+      },
+      {}
+    );
 
     const todayDateKey = moment().format("DD/MM/YYYY");
     let todayMissedSessions = 0;
@@ -1047,8 +1091,10 @@ const leaveRecords = async (req, res) => {
       message: "Daily leave reports",
       leavesCount: leaveCount,
       allowedLeaves: maxAllowedLeaves,
-      remainingLeaves: maxAllowedLeaves > leaveCount ? maxAllowedLeaves - leaveCount : 0,
-      extraLeaves: leaveCount > maxAllowedLeaves ? leaveCount - maxAllowedLeaves : 0,
+      remainingLeaves:
+        maxAllowedLeaves > leaveCount ? maxAllowedLeaves - leaveCount : 0,
+      extraLeaves:
+        leaveCount > maxAllowedLeaves ? leaveCount - maxAllowedLeaves : 0,
       extraCharges: `₹ ${extraCharges}`,
       penalty2: `₹ ${penalty2}`,
       todayMissedSessions,
@@ -1130,7 +1176,7 @@ module.exports = {
   storeQuestions,
   updateQuestions,
   listenerRequestApproval,
-   listenersList,
+  listenersList,
   listenerProfile,
   listenerProfileRecent,
   ratingList,
@@ -1142,5 +1188,5 @@ module.exports = {
   sessionRecords,
   leaveRecords,
   views,
-  viewData
+  viewData,
 };

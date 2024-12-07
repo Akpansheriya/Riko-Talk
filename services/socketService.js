@@ -1,10 +1,12 @@
 const { Server } = require("socket.io");
 
-const { recentUsersList } = require("../controllers/auth/auth");
+const { recentUsersList, accountFreeze } = require("../controllers/auth/auth");
 const Database = require("../connections/connection");
 const Wallet = Database.wallet;
 const Session = Database.session;
 const Auth = Database.user;
+const BlockedListener = Database.blockListener;
+const BlockedUser = Database.blockUser;
 const Leaves = Database.sessionRejections;
 const { Op } = require("sequelize");
 let io;
@@ -23,18 +25,25 @@ const initSocket = (server) => {
         methods: ["GET", "POST"],
       },
     });
-
+      
     io.on("connection", (socket) => {
       console.log(`Client connected: ${socket.id}`);
 
       socket.on(
         "listenersList",
-        ({ page, pageSize, gender, service, topic ,age }) => {
-          listenersList(socket, { page, pageSize, gender, service, topic,age });
+        ({ page, pageSize, gender, service, topic, age }) => {
+          listenersList(socket, {
+            page,
+            pageSize,
+            gender,
+            service,
+            topic,
+            age,
+          });
         }
       );
       socket.on("storyList", ({ page, pageSize }) => {
-        storyList(socket,{ page, pageSize });
+        storyList(socket, { page, pageSize });
       });
       recentUsersList(socket);
       socket.on("endSessionReason", (data) => {
@@ -86,7 +95,54 @@ const initSocket = (server) => {
             const userWallet = await Wallet.findOne({
               where: { user_id: userId },
             });
-
+            const blockListener = await BlockedListener.findOne({
+              where: { listenerId: listenerId, userId: userId },
+            });
+            const blocksUser = await BlockedUser.findOne({
+              where: { listenerId: listenerId, userId: userId },
+            });
+            const listenerFreeze = await Auth.findOne({
+              where: { id: listenerId, account_freeze: true },
+            });
+            const userFreeze = await Auth.findOne({
+              where: { id: userId, account_freeze: true },
+            });
+            if (listenerFreeze && userFreeze) {
+              logAndEmit(socket, "error", {
+                message: "both listener and user account freeze by system",
+              });
+              return;
+            }
+            if (listenerFreeze) {
+              logAndEmit(socket, "error", {
+                message: "listener account freeze by system",
+              });
+              return;
+            }
+            if (userFreeze) {
+              logAndEmit(socket, "error", {
+                message: "user account freeze by system",
+              });
+              return;
+            }
+            if (blocksUser && blockListener) {
+              logAndEmit(socket, "error", {
+                message: "both listener and user block by each other",
+              });
+              return;
+            }
+            if (blocksUser) {
+              logAndEmit(socket, "error", {
+                message: "listener blocked this user ",
+              });
+              return;
+            }
+            if (blockListener) {
+              logAndEmit(socket, "error", {
+                message: "user blocked this listener ",
+              });
+              return;
+            }
             if (!userWallet || userWallet.balance < 50) {
               logAndEmit(socket, "error", {
                 message:
@@ -484,7 +540,9 @@ const getSocket = () => io;
 const safeParseJSON = (value) => {
   try {
     const parsedValue = JSON.parse(value);
-    return typeof parsedValue === "string" ? JSON.parse(parsedValue) : parsedValue;
+    return typeof parsedValue === "string"
+      ? JSON.parse(parsedValue)
+      : parsedValue;
   } catch (error) {
     console.warn("Failed to parse JSON:", value);
     return []; // Return an empty array if parsing fails
@@ -497,10 +555,16 @@ const listenersList = async (
 ) => {
   try {
     const offset = (page - 1) * pageSize;
-  
 
     // Log the incoming parameters for debugging
-    console.log("Incoming Request:", { page, pageSize, gender, service, topic, age });
+    console.log("Incoming Request:", {
+      page,
+      pageSize,
+      gender,
+      service,
+      topic,
+      age,
+    });
 
     // Fetch all listener users without applying filters in the query
     const { count: totalRecords, rows: users } =
@@ -701,59 +765,51 @@ const listenersList = async (
   }
 };
 
-
-
-
-
 const storyList = async (socket, { page, pageSize }) => {
   try {
-      const offset = (page - 1) * pageSize;
+    const offset = (page - 1) * pageSize;
 
-      const { count: totalRecords, rows: listenerStories } =
-          await Database.story.findAndCountAll({
-              where: { is_approved: true },
-              include: [
-                  {
-                      model: Database.listenerProfile,
-                      as: "listenerStoryData",
-                      required: false,
-                      attributes: ["nick_name", "display_name", "display_image"],
-                  },
-              ],
-              limit: parseInt(pageSize),
-              offset: parseInt(offset),
-          });
-
-      const flattenedStories = listenerStories.map((story) => {
-          const { listenerStoryData, ...storyData } = story.toJSON();
-          return {
-              ...storyData,
-              nick_name: listenerStoryData?.nick_name || null,
-              display_name: listenerStoryData?.display_name || null,
-              display_image: listenerStoryData?.display_image || null,
-          };
+    const { count: totalRecords, rows: listenerStories } =
+      await Database.story.findAndCountAll({
+        where: { is_approved: true },
+        include: [
+          {
+            model: Database.listenerProfile,
+            as: "listenerStoryData",
+            required: false,
+            attributes: ["nick_name", "display_name", "display_image"],
+          },
+        ],
+        limit: parseInt(pageSize),
+        offset: parseInt(offset),
       });
 
-      socket.emit("storyList", {
-          message: "Stories fetched successfully",
-          totalRecords,
-          totalPages: Math.ceil(totalRecords / pageSize),
-          currentPage: parseInt(page),
-          pageSize: parseInt(pageSize),
-          StoriesList: flattenedStories,
-      });
+    const flattenedStories = listenerStories.map((story) => {
+      const { listenerStoryData, ...storyData } = story.toJSON();
+      return {
+        ...storyData,
+        nick_name: listenerStoryData?.nick_name || null,
+        display_name: listenerStoryData?.display_name || null,
+        display_image: listenerStoryData?.display_image || null,
+      };
+    });
+
+    socket.emit("storyList", {
+      message: "Stories fetched successfully",
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / pageSize),
+      currentPage: parseInt(page),
+      pageSize: parseInt(pageSize),
+      StoriesList: flattenedStories,
+    });
   } catch (error) {
-      console.error("Error fetching stories:", error);
-      socket.emit("error", {
-          message: "Error fetching stories",
-          error: error.message,
-      });
+    console.error("Error fetching stories:", error);
+    socket.emit("error", {
+      message: "Error fetching stories",
+      error: error.message,
+    });
   }
 };
-
-
-
-
 
 module.exports = {
   initSocket,
@@ -761,5 +817,5 @@ module.exports = {
   emitSessionData,
   endSessionSocket,
   getSocket,
-  storyList
+  storyList,
 };

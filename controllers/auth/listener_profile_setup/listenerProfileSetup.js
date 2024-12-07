@@ -44,6 +44,7 @@ const storeListenerProfile = async (req, res) => {
       about,
       call_availability_duration,
       dob,
+      languages
     } = req.body;
 
     const profileImage = req?.files?.profileImage?.[0];
@@ -66,7 +67,7 @@ const storeListenerProfile = async (req, res) => {
       !displayImage ||
       !adharFront ||
       !adharBack ||
-      !panCard
+      !panCard || !languages
     ) {
       return res.status(400).json({ message: "All fields are required." });
     }
@@ -94,6 +95,10 @@ const storeListenerProfile = async (req, res) => {
       adhar_front: adharFrontUrl,
       adhar_back: adharBackUrl,
       pancard: panCardUrl,
+      voice_charge: 6,
+      chat_charge: 6,
+      video_charge: 15,
+      languages:languages
     });
 
     // Update listener status
@@ -123,7 +128,7 @@ const submitForm = async (req, res) => {
       dob,
       mobile_number,
       email,
-      audio, 
+      audio,
       reference,
       answer1,
       answer2,
@@ -133,7 +138,9 @@ const submitForm = async (req, res) => {
 
     const resumeFile = req?.files?.resume?.[0];
     if (!resumeFile || !audio) {
-      return res.status(400).json({ message: "Resume and audio are required." });
+      return res
+        .status(400)
+        .json({ message: "Resume and audio are required." });
     }
 
     const resumeUrl = await uploadToS3(resumeFile, "resumes");
@@ -145,7 +152,7 @@ const submitForm = async (req, res) => {
     const audioMimeType = matches[1];
     const audioFile = {
       buffer: audioBuffer,
-      originalname: `audio-message-${Date.now()}.webm`, 
+      originalname: `audio-message-${Date.now()}.webm`,
       mimetype: audioMimeType,
     };
     const audioUrl = await uploadToS3(audioFile, "audios");
@@ -194,10 +201,41 @@ const submitForm = async (req, res) => {
     });
   }
 };
+const updateCharges = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
 
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).send({ message: "No fields provided for update" });
+    }
+
+    const charges = await ListenerProfile.findOne({
+      where: { listenerId: id },
+    });
+
+    if (!charges) {
+      return res.status(404).send({ message: "charges data not found" });
+    }
+
+    await charges.update(updates);
+
+    res.status(200).send({
+      message: "charges data updated successfully",
+      plan: charges,
+    });
+  } catch (error) {
+    console.error("Error updating charges data:", error);
+    res.status(500).send({
+      message: "Error updating charges data",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   listenerRequest,
   submitForm,
   storeListenerProfile,
+  updateCharges,
 };

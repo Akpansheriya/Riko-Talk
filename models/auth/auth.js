@@ -75,6 +75,9 @@ module.exports = (sequelize, DataTypes) => {
     is_session_running: {
       type: DataTypes.BOOLEAN,
     },
+    account_freeze: {
+      type: DataTypes.BOOLEAN,
+    },
     listener_request_status: {
       type: DataTypes.STRING,
     },

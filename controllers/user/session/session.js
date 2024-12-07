@@ -2,6 +2,10 @@ const crypto = require("crypto");
 const Database = require("../../../connections/connection");
 const Session = Database.session;
 const User = Database.user;
+const listenerWallet = Database.listenerWallet;
+const adminWallet = Database.adminWallet;
+const Admin = Database.admin;
+const listenerProfile = Database.listenerProfile;
 const Wallet = Database.wallet;
 const { generateToken04 } = require("../../../services/zegoCloudService");
 const socketService = require("../../../services/socketService");
@@ -113,6 +117,7 @@ const startSession = async (req, res) => {
     res.status(500).json({ message: "Error starting session" });
   }
 };
+
 const startSessionSocket = async ({
   user_id,
   listener_id,
@@ -125,14 +130,31 @@ const startSessionSocket = async ({
     const listener = await User.findOne({
       where: { id: listener_id, role: "listener" },
     });
+    const listenerCharges = await listenerProfile.findOne({
+      where: { listenerId: listener_id },
+    });
+    const admin_wallet = await adminWallet.findOne({
+      where: { admin_id: "3216de3b-2a82-4d29-ac4d-1bb49f9dea66" },
+    });
+    const listener_wallet = await listenerWallet.findOne({
+      where: { listener_id: listener_id },
+    });
+    const admin = await Admin.findOne({
+      where: { id: "3216de3b-2a82-4d29-ac4d-1bb49f9dea66" },
+    });
 
-    if (!user || !listener) throw new Error("User or Listener not found");
+    if (!user || !listener || !listenerCharges || !admin)
+      throw new Error("Required data not found");
+
     if (listener.is_session_running)
       throw new Error("Listener is already in a session");
 
     const wallet = await Wallet.findOne({ where: { user_id: user.id } });
     if (!wallet || wallet.balance < 3)
       throw new Error("Insufficient wallet balance");
+
+    const adminChargeRatio = parseFloat(admin.charge_ratio);
+    const listenerChargeRatio = 100 - adminChargeRatio;
 
     const roomID = `${user.id}-${listener.id}-${Date.now()}`;
     const session = await Session.create({
@@ -168,9 +190,16 @@ const startSessionSocket = async ({
     });
 
     let elapsedTimeInSeconds = 0;
-    const ratePerSecond = type === "video" ? 15 / 60 : 6 / 60; // Per-second deduction
-    const firstMinuteCharge = type === "video" ? 2.5 : 1; // ₹2.50 for video, ₹1 for audio/chat
-    let firstMinuteCharged = false; // Track if the first-minute charge is applied
+
+    const chargePerMinute =
+      type === "video"
+        ? listenerCharges.video_charge
+        : type === "audio"
+        ? listenerCharges.audio_charge
+        : listenerCharges.chat_charge;
+    const ratePerSecond = chargePerMinute / 60;
+    const firstMinuteCharge = chargePerMinute / 6;
+    let firstMinuteCharged = false;
 
     const interval = setInterval(async () => {
       try {
@@ -184,7 +213,6 @@ const startSessionSocket = async ({
 
         elapsedTimeInSeconds++;
 
-        // After the first 10 seconds, charge the user if the session exceeds 10 seconds
         if (elapsedTimeInSeconds > 10 && !firstMinuteCharged) {
           firstMinuteCharged = true;
           if (wallet.balance < firstMinuteCharge) {
@@ -192,11 +220,25 @@ const startSessionSocket = async ({
           }
           wallet.balance -= firstMinuteCharge;
           session.amount_deducted += firstMinuteCharge;
+
+          const adminShare = parseFloat(
+            (firstMinuteCharge * adminChargeRatio) / 100
+          ).toFixed(2);
+          const listenerShare = parseFloat(
+            (firstMinuteCharge * listenerChargeRatio) / 100
+          ).toFixed(2);
+
+          admin_wallet.balance =
+            parseFloat(admin_wallet.balance) + parseFloat(adminShare);
+          listener_wallet.balance =
+            parseFloat(listener_wallet.balance) + parseFloat(listenerShare);
+
           await wallet.save();
           await session.save();
+          await admin_wallet.save();
+          await listener_wallet.save();
         }
 
-        // Start per-second deduction after the first 10 seconds
         if (elapsedTimeInSeconds > 10) {
           if (wallet.balance < ratePerSecond) {
             const sessionData = await Session.findOne({
@@ -216,7 +258,6 @@ const startSessionSocket = async ({
               end: new Date(),
             };
 
-            // Notify user and listener of session end
             if (userSocket) {
               io.to(userSocket).emit("endSessionReason", {
                 message: "Insufficient wallet balance",
@@ -231,13 +272,10 @@ const startSessionSocket = async ({
             if (listenerSocket) {
               io.to(listenerSocket).emit("sessionEnded", sessionEndPayload);
             }
-
-            // Set active users status to "available"
             if (activeUsers[user.id]) activeUsers[user.id].status = "available";
             if (activeUsers[listener.id])
               activeUsers[listener.id].status = "available";
 
-            // End session and clean up
             await endSession({
               sessionId: session.id,
               reason: "Insufficient wallet balance",
@@ -245,12 +283,28 @@ const startSessionSocket = async ({
             clearInterval(interval);
             sessionIntervals.delete(session.id);
           } else {
-            wallet.balance -= ratePerSecond; // Deduct per second
+            wallet.balance -= ratePerSecond;
             session.amount_deducted += ratePerSecond;
+
+            const adminShare = parseFloat(
+              (ratePerSecond * adminChargeRatio) / 100
+            ).toFixed(2);
+            const listenerShare = parseFloat(
+              (ratePerSecond * listenerChargeRatio) / 100
+            ).toFixed(2);
+
+            admin_wallet.balance =
+              parseFloat(admin_wallet.balance) + parseFloat(adminShare);
+            listener_wallet.balance =
+              parseFloat(listener_wallet.balance) + parseFloat(listenerShare);
+
+            await wallet.save();
+            await session.save();
+            await admin_wallet.save();
+            await listener_wallet.save();
           }
         }
 
-        // Update session duration
         const minutes = Math.floor(elapsedTimeInSeconds / 60);
         const seconds = elapsedTimeInSeconds % 60;
         const formattedDuration = parseFloat(
@@ -258,8 +312,6 @@ const startSessionSocket = async ({
         );
 
         session.total_duration = formattedDuration;
-        await wallet.save();
-        await session.save();
 
         socketService.emitSessionData(roomID, {
           sessionId: session.id,
@@ -287,8 +339,7 @@ const startSessionSocket = async ({
     throw error;
   }
 };
-
-
+  
 
 
 
@@ -305,13 +356,16 @@ const startSessionSocket = async ({
 //     const listener = await User.findOne({
 //       where: { id: listener_id, role: "listener" },
 //     });
-
+//     const admin_wallet = await adminWallet.findOne({ where: { admin_id:"3216de3b-2a82-4d29-ac4d-1bb49f9dea66"  } });
+//     const listener_wallet = await listenerWallet.findOne({ where: { listener_id:listener_id } });
 //     if (!user || !listener) throw new Error("User or Listener not found");
 //     if (listener.is_session_running)
 //       throw new Error("Listener is already in a session");
+
 //     const wallet = await Wallet.findOne({ where: { user_id: user.id } });
 //     if (!wallet || wallet.balance < 3)
 //       throw new Error("Insufficient wallet balance");
+
 //     const roomID = `${user.id}-${listener.id}-${Date.now()}`;
 //     const session = await Session.create({
 //       user_id: user.id,
@@ -323,10 +377,12 @@ const startSessionSocket = async ({
 //       total_duration: 0.0,
 //       amount_deducted: 0,
 //     });
+
 //     listener.is_session_running = true;
 //     user.is_session_running = true;
 //     await user.save();
 //     await listener.save();
+
 //     const payload = {
 //       app_id: appID,
 //       room_id: roomID,
@@ -334,6 +390,7 @@ const startSessionSocket = async ({
 //       privilege: { 1: 1, 2: 1 },
 //     };
 //     const token = generateToken04(appID, user.id, serverSecret, 3600, payload);
+
 //     socketService.startSessionSocket(roomID, token);
 //     socketService.emitSessionData(roomID, {
 //       sessionId: session.id,
@@ -341,97 +398,114 @@ const startSessionSocket = async ({
 //       balance: wallet.balance,
 //       amountDeducted: session.amount_deducted,
 //     });
+
 //     let elapsedTimeInSeconds = 0;
-//     const deductionPerSecond = 3 / 60;
+//     const ratePerSecond = type === "video" ? 15 / 60 : 6 / 60; // Per-second deduction
+//     const firstMinuteCharge = type === "video" ? 2.5 : 1; // ₹2.50 for video, ₹1 for audio/chat
+//     let firstMinuteCharged = false; // Track if the first-minute charge is applied
+
 //     const interval = setInterval(async () => {
 //       try {
 //         const wallet = await Wallet.findOne({
 //           where: { user_id: session.user_id },
 //         });
-//         if (!wallet || wallet.balance < deductionPerSecond) {
-//           const sessionData = await Session.findOne({
-//             where: { id: session.id },
-//           });
-//           const userSocket = activeUsers[user.id]?.socketId;
-//           const listenerSocket = activeUsers[listener.id]?.socketId;
 
-//           const sessionEndPayload = {
-//             userId: user.id,
-//             listenerId: listener.id,
-//             sessionId: session.id,
-//             reason: "Insufficient wallet balance",
-//             type: type,
-//             sessionEndedBy: "system",
-//             start: sessionData.start_time,
-//             end: new Date(),
-//           };
+//         if (!wallet) {
+//           throw new Error("Wallet not found");
+//         }
 
-//           // Emit endSessionReason event to the user
-//           if (userSocket) {
-//             io.to(userSocket).emit("endSessionReason", {
-//               message: "Insufficient wallet balance",
+//         elapsedTimeInSeconds++;
+
+//         // After the first 10 seconds, charge the user if the session exceeds 10 seconds
+//         if (elapsedTimeInSeconds > 10 && !firstMinuteCharged) {
+//           firstMinuteCharged = true;
+//           if (wallet.balance < firstMinuteCharge) {
+//             throw new Error("Insufficient balance for first-minute charge");
+//           }
+//           wallet.balance -= firstMinuteCharge;
+//           session.amount_deducted += firstMinuteCharge;
+//           await wallet.save();
+//           await session.save();
+//         }
+
+//         // Start per-second deduction after the first 10 seconds
+//         if (elapsedTimeInSeconds > 10) {
+//           if (wallet.balance < ratePerSecond) {
+//             const sessionData = await Session.findOne({
+//               where: { id: session.id },
+//             });
+//             const userSocket = activeUsers[user.id]?.socketId;
+//             const listenerSocket = activeUsers[listener.id]?.socketId;
+
+//             const sessionEndPayload = {
 //               userId: user.id,
 //               listenerId: listener.id,
 //               sessionId: session.id,
 //               reason: "Insufficient wallet balance",
-//               roomID: roomID,
+//               type: type,
+//               sessionEndedBy: "system",
+//               start: sessionData.start_time,
+//               end: new Date(),
+//             };
+
+//             // Notify user and listener of session end
+//             if (userSocket) {
+//               io.to(userSocket).emit("endSessionReason", {
+//                 message: "Insufficient wallet balance",
+//                 userId: user.id,
+//                 listenerId: listener.id,
+//                 sessionId: session.id,
+//                 reason: "Insufficient wallet balance",
+//                 roomID: roomID,
+//               });
+//               io.to(userSocket).emit("sessionEnded", sessionEndPayload);
+//             }
+//             if (listenerSocket) {
+//               io.to(listenerSocket).emit("sessionEnded", sessionEndPayload);
+//             }
+
+//             // Set active users status to "available"
+//             if (activeUsers[user.id]) activeUsers[user.id].status = "available";
+//             if (activeUsers[listener.id])
+//               activeUsers[listener.id].status = "available";
+
+//             // End session and clean up
+//             await endSession({
+//               sessionId: session.id,
+//               reason: "Insufficient wallet balance",
 //             });
+//             clearInterval(interval);
+//             sessionIntervals.delete(session.id);
+//           } else {
+//             wallet.balance -= ratePerSecond; // Deduct per second
+//             session.amount_deducted += ratePerSecond;
 //           }
-
-//           // Emit sessionEnded event to both user and listener
-//           if (userSocket) {
-//             io.to(userSocket).emit("sessionEnded", sessionEndPayload);
-//           }
-//           if (listenerSocket) {
-//             io.to(listenerSocket).emit("sessionEnded", sessionEndPayload);
-//           }
-
-//           // Update the status of active users to "available"
-//           if (activeUsers[user.id]) {
-//             activeUsers[user.id].status = "available";
-//             console.log(`User ID ${user.id} status set to available.`);
-//           }
-
-//           if (activeUsers[listener.id]) {
-//             activeUsers[listener.id].status = "available";
-//             console.log(`Listener ID ${listener.id} status set to available.`);
-//           }
-//           console.log("active-users-----", activeUsers);
-//           // End the session in the database
-//           await endSession({
-//             sessionId: session.id,
-//             reason: "Insufficient wallet balance",
-//           });
-
-//           // Clear the interval and remove the session from active tracking
-//           clearInterval(interval);
-//           sessionIntervals.delete(session.id);
-//         } else {
-//           wallet.balance -= deductionPerSecond;
-//           session.amount_deducted += deductionPerSecond;
-//           elapsedTimeInSeconds++;
-//           const minutes = Math.floor(elapsedTimeInSeconds / 60);
-//           const seconds = elapsedTimeInSeconds % 60;
-//           const formattedDuration = parseFloat(
-//             `${minutes}.${seconds < 10 ? "0" : ""}${seconds}`
-//           );
-
-//           session.total_duration = formattedDuration;
-//           await wallet.save();
-//           await session.save();
-//           socketService.emitSessionData(roomID, {
-//             sessionId: session.id,
-//             duration: session.total_duration,
-//             balance: wallet.balance,
-//             amountDeducted: session.amount_deducted,
-//           });
 //         }
+
+//         // Update session duration
+//         const minutes = Math.floor(elapsedTimeInSeconds / 60);
+//         const seconds = elapsedTimeInSeconds % 60;
+//         const formattedDuration = parseFloat(
+//           `${minutes}.${seconds < 10 ? "0" : ""}${seconds}`
+//         );
+
+//         session.total_duration = formattedDuration;
+//         await wallet.save();
+//         await session.save();
+
+//         socketService.emitSessionData(roomID, {
+//           sessionId: session.id,
+//           duration: session.total_duration,
+//           balance: wallet.balance,
+//           amountDeducted: session.amount_deducted,
+//         });
 //       } catch (error) {
 //         console.error("Error during session interval:", error.message);
 //         clearInterval(interval);
 //         sessionIntervals.delete(session.id);
 //       }
 //     }, 1000);
+
 //     sessionIntervals.set(session.id, interval);
 
 //     return {
@@ -445,6 +519,8 @@ const startSessionSocket = async ({
 //     throw error;
 //   }
 // };
+
+
 
 const endSession = async ({ sessionId, reason }) => {
   try {

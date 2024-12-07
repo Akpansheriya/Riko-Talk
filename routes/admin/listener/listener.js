@@ -1,5 +1,6 @@
 const express = require("express");
 const listenerController = require("../../../controllers/admin/listener/listener");
+const blockuser = require("../../../controllers/auth/block_user/blockUser");
 const listenerControllerRouter = express.Router();
 const multer = require('multer');
 
@@ -63,4 +64,5 @@ listenerControllerRouter.post("/story/add-views", listenerController.views)
 listenerControllerRouter.get("/story/views-list/:id", listenerController.viewData)
 listenerControllerRouter.get("/daily-session-records/:listenerId", listenerController.sessionRecords)
 listenerControllerRouter.get("/leaves-record/:listenerId", listenerController.leaveRecords)
+listenerControllerRouter.post("/block-user", blockuser.blockUser)
 module.exports = listenerControllerRouter;

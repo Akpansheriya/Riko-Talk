@@ -36,6 +36,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSON,
       allowNULL: false,
     },
+    languages: {
+      type: DataTypes.JSON,
+      allowNULL: false,
+    },
     about: {
       type: DataTypes.STRING,
       allowNULL: false,
@@ -66,6 +70,18 @@ module.exports = (sequelize, DataTypes) => {
     },
     pancard: {
       type: DataTypes.STRING,
+      allowNULL: false,
+    },
+    voice_charge : {
+      type: DataTypes.NUMBER,
+      allowNULL: false,
+    },
+    chat_charge : {
+      type: DataTypes.NUMBER,
+      allowNULL: false,
+    },
+    video_charge : {
+      type: DataTypes.NUMBER,
       allowNULL: false,
     }
   });

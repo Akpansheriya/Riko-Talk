@@ -39,12 +39,9 @@ const register = async (req, res) => {
 
     const newReferralCode = generateRandomCode();
 
-    function generateNumericOTP() {
-      return Math.floor(1000 + Math.random() * 9000);
-    }
-
-    const otp = generateNumericOTP();
-
+   
+    const otpResponse = await sendOtp(mobile);
+    
     const userData = {
       fullName: req.body.fullName,
       email: req.body.email,
@@ -60,7 +57,7 @@ const register = async (req, res) => {
       state: req.body.state,
       referal_code: req.body.referal_code,
       your_referal_code: newReferralCode,
-      otp: otp,
+      otp_session_id: otpResponse.Details,
     };
 
     const newUser = await Auth.create(userData);
@@ -338,7 +335,7 @@ const verifyOtp2factor = async (req, res) => {
         );
 
         await Auth.update(
-          { isverified: true, token: token, otp_session_id: null },
+          { isVerified: true, token: token, otp_session_id: null },
           { where: { mobile_number: user.mobile_number } }
         );
 
@@ -389,7 +386,7 @@ const verifyOtp2factor = async (req, res) => {
       );
 
       await Auth.update(
-        { isverified: true, token: token, otp_session_id: null },
+        { isVerified: true, token: token, otp_session_id: null },
         { where: { mobile_number: user.mobile_number } }
       );
 
@@ -645,10 +642,11 @@ const resendOtp = async (req, res) => {
 
 const sendOtp = async (phoneNumber) => {
   const apiKey = "c381bda3-7b3e-11ef-8b17-0200cd936042";
-  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN3`;
+  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phoneNumber}/AUTOGEN3/otp - template`;
 
   try {
     const response = await axios.get(url);
+    console.log("response",response.data)
     if (response.data.Status === "Success") {
       console.log("OTP sent successfully");
       return response.data;
@@ -701,6 +699,36 @@ const recentUsersList = async (socket) => {
   }
 };
 
+const accountFreeze = async (req, res) => {
+  const id = req.body.id;
+  try {
+    const user = await Auth.findOne({ where: { id: id } });
+    
+    if (!user) {
+      return res.status(409).json({
+        message: "User does not exist",
+      });
+    }
+
+    const newStatus = !user.account_freeze;
+    await Auth.update(
+      { account_freeze: newStatus },
+      { where: { id: user.id } }
+    );
+
+    return res.status(200).json({
+      message: `Account freeze status updated to ${newStatus}`,
+    });
+  } catch (error) {
+    console.error("Error toggling account freeze status:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error,
+    });
+  }
+};
+
+
 module.exports = {
   register,
   login,
@@ -712,4 +740,5 @@ module.exports = {
   verifyOtp2factor,
   recentUsersList,
   ProfilesData,
+  accountFreeze
 };
