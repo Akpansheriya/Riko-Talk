@@ -740,5 +740,6 @@ module.exports = {
   verifyOtp2factor,
   recentUsersList,
   ProfilesData,
-  accountFreeze
+  accountFreeze,
+  
 };

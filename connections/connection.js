@@ -139,6 +139,10 @@ Database.userOrder = require("../models/user/recharge/recharge")(
   sequelize,
   DataTypes
 );
+Database.userName = require("../models/auth/user-name/userNames")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {

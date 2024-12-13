@@ -11,6 +11,7 @@ const Leaves = Database.leaves;
 const Story = Database.story;
 const ListenerActivity = Database.listenerActivity;
 const ListenerProfile = Database.listenerProfile;
+const userName = Database.userName;
 const Views = Database.views;
 const moment = require("moment");
 const { storyList } = require("../../../services/socketService");
@@ -1169,7 +1170,44 @@ const sessionRecords = async (req, res) => {
     });
   }
 };
-
+const addUserName = async (req, res) => {
+  try {
+    const { name,listenerId,userId } = req.body;
+    const data = {
+      name: name,
+      listenerId:listenerId,
+      userId:userId
+    };
+    userName.create(data).then((result) => {
+      res.status(200).send({
+        message: "nick name added successfulyy",
+        username: result,
+      });
+    });
+  } catch (error) {
+    console.error("Error adding nick name:", error);
+    res.status(500).send({
+      message: "Error adding nick name",
+      error: error,
+    });
+  }
+};
+const userNames = async (req,res) => {
+  try {
+    const listenerId = req.params.listenerId
+    const userNames = await userName.findAll({where:{listenerId:listenerId}})
+    res.status(200).send({
+      message:"usernames list",
+      userNamesList:userNames
+    })
+  } catch (error) {
+    console.error("Error fetching usernames list:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error,
+    });
+  }
+}
 module.exports = {
   listenerRequestList,
   listenerFormLink,
@@ -1189,4 +1227,6 @@ module.exports = {
   leaveRecords,
   views,
   viewData,
+  addUserName,
+  userNames
 };

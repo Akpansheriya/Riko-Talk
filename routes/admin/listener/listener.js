@@ -64,5 +64,7 @@ listenerControllerRouter.post("/story/add-views", listenerController.views)
 listenerControllerRouter.get("/story/views-list/:id", listenerController.viewData)
 listenerControllerRouter.get("/daily-session-records/:listenerId", listenerController.sessionRecords)
 listenerControllerRouter.get("/leaves-record/:listenerId", listenerController.leaveRecords)
+listenerControllerRouter.post("/add/user-name", listenerController.addUserName)
+listenerControllerRouter.get("/user-names/list/:listenerId", listenerController.userNames)
 listenerControllerRouter.post("/block-user", blockuser.blockUser)
 module.exports = listenerControllerRouter;
