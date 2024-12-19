@@ -15,12 +15,14 @@ const rechargePlanRouter = require("../admin/recharge_plan/recharge");
 const adminRouter = require("../admin/manage_role/admin");
 const listenerWalletRouter = require("../auth/listenerWallet");
 const userPaymentRouter = require("../user/recharge");
+const topicsRouter = require("../admin/topics/topics");
+const gstRouter = require("../admin/gst/gst");
 const routers = express.Router();
 
 //Define all routers here
 
-routers.use("/user", userRouter,blockListenerRouter);
-routers.use("/admin", adminRouter)
+routers.use("/user", userRouter, blockListenerRouter);
+routers.use("/admin", adminRouter);
 routers.use("/support", supportRouter);
 routers.use("/contact", contactRouter);
 routers.use("/coupen", coupenRouter);
@@ -31,7 +33,9 @@ routers.use("/session", sessionRouter);
 routers.use("/wallet", walletRouter);
 routers.use("/admin-wallet", adminWalletRouter);
 routers.use("/notification", notificationRouter);
-routers.use("/queries", queriesRouter );
-routers.use("/plans", rechargePlanRouter );
-routers.use("/user/payment", userPaymentRouter );
+routers.use("/queries", queriesRouter);
+routers.use("/plans", rechargePlanRouter);
+routers.use("/user/payment", userPaymentRouter);
+routers.use("/topic", topicsRouter);
+routers.use("/gst", gstRouter);
 module.exports = routers;

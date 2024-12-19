@@ -143,6 +143,14 @@ Database.userName = require("../models/auth/user-name/userNames")(
   sequelize,
   DataTypes
 );
+Database.topics = require("../models/admin/topics/topics")(
+  sequelize,
+  DataTypes
+);
+Database.Gst = require("../models/admin/gst/gst")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {

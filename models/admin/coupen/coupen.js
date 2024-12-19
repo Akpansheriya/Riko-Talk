@@ -22,6 +22,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
     },
+    expire_date:{
+      type:DataTypes.DATE,
+      allowNull: false,
+    },
+    minimum_amount:{
+      type:DataTypes.INTEGER,
+      allowNull: false,
+    }
   });
 
   return Coupen;

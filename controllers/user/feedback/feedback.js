@@ -24,7 +24,33 @@ const feedback = async (req, res) => {
     });
   }
 };
+const deleteFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const feedback = await Feedback.destroy({
+      where: { id: id },
+    });
+
+    if (feedback) {
+      res.status(200).send({
+        message: "Feedback deleted successfully",
+      });
+    } else {
+      res.status(404).send({
+        message: "Feedback not found",
+      });
+    }
+  } catch (error) {
+    console.error("Error deleting feedback:", error);
+    res.status(500).send({
+      message: "Error deleting feedback",
+      error: error,
+    });
+  }
+};
 
 module.exports = {
   feedback,
+  deleteFeedback
 };
