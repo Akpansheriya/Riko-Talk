@@ -3,12 +3,14 @@ const Coupen = Database.coupen;
 
 const coupen = async (req, res) => {
   try {
-    const { title, percentage, instruction } = req.body;
+    const { title, percentage, instruction,minimum_amount,expire_date } = req.body;
     const data = {
       title: title,
       percentage: percentage,
       instruction: instruction,
       isActive: true,
+      minimum_amount:minimum_amount,
+      expire_date:expire_date
     };
     Coupen.create(data).then((result) => {
       res.status(200).send({

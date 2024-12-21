@@ -27,18 +27,29 @@ const topic = async (req, res) => {
 const topicsData = async (req, res) => {
   try {
     const topics = await Topics.findAll({});
+
+    const updatedTopics = topics.map((topic) => ({
+      id: topic.id,
+      label: topic.topic,
+      value: topic.topic,
+      is_active: topic.is_active,
+      createdAt: topic.createdAt,
+      updatedAt: topic.updatedAt,
+    }));
+
     res.status(200).send({
       message: "topics data",
-      topics: topics,
+      topics: updatedTopics,
     });
   } catch (error) {
-    console.error("Error creating topics:", error);
+    console.error("Error fetching topics:", error);
     res.status(500).send({
-      message: "Error creating topics",
+      message: "Error fetching topics",
       error: error,
     });
   }
 };
+
 
 const toggleTopicStatus = async (req, res) => {
     try {
