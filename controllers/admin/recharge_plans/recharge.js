@@ -1,6 +1,7 @@
 const Database = require("../../../connections/connection");
 const rechargePlan = Database.rechargePlan;
 
+
 const createNewRecharPlan = async (req, res) => {
   try {
     const { recharge_amount } = req.body;
@@ -23,7 +24,6 @@ const createNewRecharPlan = async (req, res) => {
     });
   }
 };
-
 const plansData = async (req, res) => {
   try {
     const plans = await rechargePlan.findAll({});
@@ -49,7 +49,7 @@ const updateRechargePlan = async (req, res) => {
     }
 
     const rechargePlans = await rechargePlan.findOne({ where: { id } });
-
+   
     if (!rechargePlans) {
       return res.status(404).send({ message: "Recharge plan not found" });
     }

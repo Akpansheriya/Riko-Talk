@@ -135,7 +135,7 @@ Database.listenerWallet = require("../models/auth/listener_wallet/listenerWallet
   sequelize,
   DataTypes
 );
-Database.userOrder = require("../models/user/recharge/recharge")(
+Database.userRecharge = require("../models/user/recharge/recharge")(
   sequelize,
   DataTypes
 );
@@ -148,6 +148,14 @@ Database.topics = require("../models/admin/topics/topics")(
   DataTypes
 );
 Database.Gst = require("../models/admin/gst/gst")(
+  sequelize,
+  DataTypes
+);
+Database.GstRecords = require("../models/admin/gst/gstRecords")(
+  sequelize,
+  DataTypes
+);
+Database.gift = require("../models/user/gift/gift")(
   sequelize,
   DataTypes
 );

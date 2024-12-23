@@ -1,74 +1,63 @@
 const Database = require("../../../connections/connection");
-const Wallet = Database.wallet;
-const userRecharge = Database.userRecharge;
+const Wallet = Database.listenerWallet;
+const Gift = Database.gift;
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const GstRecords = Database.GstRecords;
 const Gst = Database.Gst;
-const Coupen = Database.coupen;
-const RechargePlans = Database.rechargePlan;
+const Admin = Database.admin;
 const razorpay = new Razorpay({
   key_id: "rzp_test_riF3R5CXRhzNNC",
   key_secret: "7a2JNy9d0bVCbbixkoqJJBEi",
 });
 
-const recharge = async (req, res) => {
+const gift = async (req, res) => {
   try {
-    const { user_id, amount, type, name, country, state, coupen_id, plan_id } =
+    const { user_id, listener_id, amount, type, name, country, state } =
       req.body;
 
-    if (!user_id || !amount || !type || !name || !country || !state) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "user_id, amount, type, name, country, and state are required",
-        });
-    }
-
-    let discount = 0;
-    let planAmount = 0;
-    console.log("discount", discount);
-
-    if (plan_id) {
-      const plan = await RechargePlans.findOne({ where: { id: plan_id } });
-      if (!plan) {
-        return res.status(404).json({ message: "Invalid plan_id" });
-      }
-      planAmount = parseFloat(plan.recharge_amount || 0);
-    }
-
-    if (coupen_id) {
-      const coupon = await Coupen.findOne({ where: { id: coupen_id } });
-      console.log("coupon", coupon);
-      if (!coupon) {
-        return res.status(404).json({ message: "Invalid coupen_id" });
-      }
-      discount = (amount * coupon.percentage) / 100;
-    }
-
-    const grossAmount = parseFloat(amount) - discount;
-
-    if (grossAmount <= 0) {
-      return res.status(400).json({ message: "Invalid final amount" });
+    if (
+      !user_id ||
+      !listener_id ||
+      !amount ||
+      !type ||
+      !name ||
+      !country ||
+      !state
+    ) {
+      return res.status(400).json({
+        message:
+          "user_id, listener_id, amount, type, name, country, and state are required",
+      });
     }
 
     const gstPercentage = 18;
-    const gstAmount = (grossAmount * gstPercentage) / 100;
-    const netAmount = grossAmount - gstAmount;
-    console.log("gst", gstAmount);
+    const gstAmount = (amount * gstPercentage) / 100;
+    const netAmount = amount - gstAmount;
+
+    const adminId = "3216de3b-2a82-4d29-ac4d-1bb49f9dea66";
+    const admin = await Admin.findOne({ where: { id: adminId } });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const chargeRatio = admin.charge_ratio || 0;
+    const adminCommission = (amount * chargeRatio) / 100;
+    const listenerNetAmount = netAmount - adminCommission;
 
     const options = {
-      amount: Math.round((grossAmount + gstAmount) * 100),
+      amount: Math.round(amount * 100),
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
 
-    await userRecharge.create({
+    await Gift.create({
       user_id,
-      amount: grossAmount + gstAmount,
+      listener_id,
+      amount,
       type,
       razorpay_order_id: order.id,
       status: "pending",
@@ -76,10 +65,10 @@ const recharge = async (req, res) => {
       gst: gstPercentage,
       country,
       state,
-      recharge_amount: grossAmount + discount,
-      net_recharge: netAmount,
+      net_gift_amount: listenerNetAmount,
       transaction_date: new Date(),
       gst_amount: gstAmount,
+      admin_commission: adminCommission,
     });
 
     return res.status(200).json({
@@ -95,11 +84,27 @@ const recharge = async (req, res) => {
   }
 };
 
-const verifyRecharge = async (req, res) => {
+const verifyGiftPayment = async (req, res) => {
   try {
-    const { order_id, payment_id, signature, user_id, type, state } = req.body;
+    const {
+      order_id,
+      payment_id,
+      signature,
+      user_id,
+      listener_id,
+      type,
+      state,
+    } = req.body;
 
-    if (!order_id || !payment_id || !signature || !user_id || !type || !state) {
+    if (
+      !order_id ||
+      !listener_id ||
+      !payment_id ||
+      !signature ||
+      !user_id ||
+      !type ||
+      !state
+    ) {
       return res.status(400).json({ message: "Invalid payment details" });
     }
 
@@ -115,38 +120,51 @@ const verifyRecharge = async (req, res) => {
     const generatedSignature = hmac.digest("hex");
 
     if (generatedSignature !== signature) {
-      await userRecharge.update(
+      await Gift.update(
         { status: "failed" },
         { where: { razorpay_order_id: order_id } }
       );
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
-    const wallet = await Wallet.findOne({ where: { user_id } });
+    const wallet = await Wallet.findOne({ where: { listener_id } });
 
     if (!wallet) {
-      return res.status(404).json({ message: "Wallet not found for user" });
+      return res.status(404).json({ message: "Wallet not found for listener" });
     }
 
-    const order = await userRecharge.findOne({
+    const order = await Gift.findOne({
       where: { razorpay_order_id: order_id },
     });
+
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
     const gstAmount = (order.amount * gstPercentage) / 100;
-    const netAmount = parseFloat(order.recharge_amount);
+    const netAmount = parseFloat(order.amount - gstAmount);
 
-    wallet.balance = parseFloat(wallet.balance) + netAmount;
+    const adminId = "3216de3b-2a82-4d29-ac4d-1bb49f9dea66";
+    const admin = await Admin.findOne({ where: { id: adminId } });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const chargeRatio = admin.charge_ratio || 0;
+    const adminCommission = (order.amount * chargeRatio) / 100;
+    const listenerNetAmount = netAmount - adminCommission;
+
+    wallet.balance = parseFloat(wallet.balance) + listenerNetAmount;
     await wallet.save();
 
     order.status = "success";
     order.razorpay_payment_id = payment_id;
     order.razorpay_signature = signature;
     order.gst = gstPercentage;
-    order.net_recharge = netAmount;
+    order.net_gift_amount = listenerNetAmount;
     order.transaction_date = new Date();
+    order.admin_commission = adminCommission;
     await order.save();
 
     await GstRecords.create({
@@ -190,7 +208,7 @@ const webhookHandler = async (req, res) => {
     if (event === "payment.captured") {
       const payment = payload.payment.entity;
 
-      const order = await userRecharge.findOne({
+      const order = await Gift.findOne({
         where: { razorpay_order_id: payment.order_id },
       });
 
@@ -243,7 +261,7 @@ const webhookHandler = async (req, res) => {
 };
 
 module.exports = {
-  recharge,
-  verifyRecharge,
+  gift,
+  verifyGiftPayment,
   webhookHandler,
 };

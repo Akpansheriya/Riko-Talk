@@ -7,5 +7,5 @@ rechargeControllerRouter.post(
   rechargeController.recharge
 );
 rechargeControllerRouter.post("/payment-verify", rechargeController.verifyRecharge);
-
+rechargeControllerRouter.post("/webhook", express.raw({ type: 'application/json' }), rechargeController.webhookHandler);
 module.exports = rechargeControllerRouter;

@@ -17,6 +17,7 @@ const listenerWalletRouter = require("../auth/listenerWallet");
 const userPaymentRouter = require("../user/recharge");
 const topicsRouter = require("../admin/topics/topics");
 const gstRouter = require("../admin/gst/gst");
+const giftRouter = require("../user/gift");
 const routers = express.Router();
 
 //Define all routers here
@@ -36,6 +37,7 @@ routers.use("/notification", notificationRouter);
 routers.use("/queries", queriesRouter);
 routers.use("/plans", rechargePlanRouter);
 routers.use("/user/payment", userPaymentRouter);
+routers.use("/user/gift", giftRouter);
 routers.use("/topic", topicsRouter);
 routers.use("/gst", gstRouter);
 module.exports = routers;

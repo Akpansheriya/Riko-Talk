@@ -2,7 +2,7 @@
   
 
   module.exports = (sequelize, DataTypes) => {
-    const userRecharge = sequelize.define("user_recharge", {
+    const gift = sequelize.define("gift", {
       id: {
         type: DataTypes.UUID,
         allowNull: false,
@@ -15,17 +15,14 @@
         primaryKey: true,
         defaultValue: DataTypes.UUIDV4,
       },
-      coupen_id: {
+      listener_id: {
         type: DataTypes.UUID,
+        allowNull: false,
         primaryKey: true,
         defaultValue: DataTypes.UUIDV4,
       },
       amount: {
         type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      type: {
-        type: DataTypes.STRING, 
         allowNull: false,
       },
       status: {
@@ -56,17 +53,17 @@
       state: {
         type: DataTypes.STRING,
       },
-      recharge_amount: {
-        type: DataTypes.DECIMAL(10, 2),
-      },
-      net_recharge: {
+      net_gift_amount: {
         type: DataTypes.DECIMAL(10, 2),
       },
       transaction_date: {
         type: DataTypes.DATE,
       },
+      admin_commission :{
+        type:DataTypes.INTEGER
+      }
     });
   
-    return userRecharge;
+    return gift;
   };
   
