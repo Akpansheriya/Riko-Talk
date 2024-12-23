@@ -159,6 +159,10 @@ Database.gift = require("../models/user/gift/gift")(
   sequelize,
   DataTypes
 );
+Database.giftPlan = require("../models/admin/gift_plan/giftPlan")(
+  sequelize,
+  DataTypes
+);
 Database.sequelize = sequelize;
 
 Database?.user?.hasMany(Database.listenerProfile, {
