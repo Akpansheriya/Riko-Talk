@@ -10,8 +10,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DECIMAL(10, 2),
         defaultValue: 0.0,
       },
-      gst: {
-        type: DataTypes.INTEGER,
+      gst_amount: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+      },
+      net_amount: {
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
       isHighlight: {

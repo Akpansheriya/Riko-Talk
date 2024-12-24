@@ -1,29 +1,40 @@
 const Database = require("../../../connections/connection");
 const rechargePlan = Database.rechargePlan;
 
-
 const createNewRecharPlan = async (req, res) => {
   try {
     const { recharge_amount } = req.body;
+
+    if (!recharge_amount) {
+      return res.status(400).send({ message: "Recharge amount is required" });
+    }
+
+    const gstPercentage = 18;
+    const gstAmount = (recharge_amount * gstPercentage) / 100;
+    const netAmount = recharge_amount - gstAmount;
+
     const data = {
-      recharge_amount: recharge_amount,
-      gst: 18,
-      isHighlight: false,
-    };
-    rechargePlan.create(data).then((result) => {
-      res.status(200).send({
-        message: "recharge plan created successfulyy",
-        plan: result,
-      });
+      recharge_amount,
+      gst_amount: gstAmount,
+      net_amount: netAmount,
+      isHighlight: true,
+    }; 
+
+    const result = await rechargePlan.create(data);
+
+    res.status(200).send({
+      message: "Recharge plan created successfully",
+      plan: result,
     });
   } catch (error) {
     console.error("Error creating recharge plan:", error);
     res.status(500).send({
       message: "Error creating recharge plan",
-      error: error,
+      error: error.message,
     });
   }
 };
+
 const plansData = async (req, res) => {
   try {
     const plans = await rechargePlan.findAll({});
@@ -49,7 +60,7 @@ const updateRechargePlan = async (req, res) => {
     }
 
     const rechargePlans = await rechargePlan.findOne({ where: { id } });
-   
+
     if (!rechargePlans) {
       return res.status(404).send({ message: "Recharge plan not found" });
     }
